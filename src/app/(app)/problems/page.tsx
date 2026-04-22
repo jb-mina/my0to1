@@ -324,7 +324,7 @@ function DetailPanel({ card, onClose }: { card: ProblemCard; onClose: () => void
   return (
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-surface border-l border-border shadow-xl z-50 flex flex-col">
+      <div className="fixed right-0 top-0 h-full w-full md:max-w-md bg-surface border-l border-border shadow-xl z-50 flex flex-col">
         <div className="flex items-start justify-between px-5 py-4 border-b border-border shrink-0">
           <div className="space-y-2 pr-4">
             <h2 className="font-semibold text-sm text-foreground leading-snug">{card.title}</h2>
@@ -432,7 +432,7 @@ export default function ProblemsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Crosshair size={20} className="text-violet-600" />

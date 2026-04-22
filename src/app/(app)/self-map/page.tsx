@@ -122,15 +122,32 @@ export default function SelfMapPage() {
     await fetchEntries();
   }
 
+  const [activeTab, setActiveTab] = useState<"chat" | "map">("chat");
+
   const grouped = entries.reduce<Record<string, SelfMapEntry[]>>((acc, e) => {
     (acc[e.category] ??= []).push(e);
     return acc;
   }, {});
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
+      {/* Mobile tab bar */}
+      <div className="md:hidden flex shrink-0 border-b border-border bg-surface">
+        {(["chat", "map"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === tab ? "text-violet-600 border-b-2 border-violet-600" : "text-muted"
+            }`}
+          >
+            {tab === "chat" ? "인터뷰" : "Self Map"}
+          </button>
+        ))}
+      </div>
+
       {/* Chat panel */}
-      <div className="flex flex-col flex-1 border-r border-border">
+      <div className={`flex-col flex-1 min-h-0 border-r border-border ${activeTab === "map" ? "hidden md:flex" : "flex"}`}>
         <div className="flex items-center gap-2 px-5 py-4 border-b border-border bg-surface">
           <Brain size={18} className="text-violet-600" />
           <h1 className="font-semibold text-foreground">Self Insight Agent</h1>
@@ -197,7 +214,7 @@ export default function SelfMapPage() {
       </div>
 
       {/* Self Map panel */}
-      <div className="w-80 shrink-0 overflow-y-auto bg-surface">
+      <div className={`flex-col overflow-y-auto bg-surface md:w-80 md:shrink-0 ${activeTab === "chat" ? "hidden md:flex" : "flex flex-1"}`}>
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
           <button onClick={fetchEntries} className="text-subtle hover:text-secondary p-1 rounded">
