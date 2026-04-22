@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope } from "lucide-react";
+import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope, Star } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -24,8 +24,82 @@ type ProblemCard = {
 const SOURCE_LABELS: Record<string, string> = {
   yc: "YC", sequoia: "Sequoia", a16z: "a16z",
   producthunt: "Product Hunt", appstore: "App Store", manual: "직접 추가",
+  news: "투자 뉴스",
 };
 
+function ScoreSlider({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between text-xs">
+        <span className="text-tertiary">{label}</span>
+        <span className="font-semibold text-violet-600">{value}/5</span>
+      </div>
+      <input
+        type="range" min={1} max={5} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-violet-500"
+      />
+    </div>
+  );
+}
+
+function FitEvaluateModal({
+  card,
+  onClose,
+  onSave,
+}: {
+  card: ProblemCard;
+  onClose: () => void;
+  onSave: (data: { attraction: number; understanding: number; accessibility: number; motivation: number; notes: string }) => void;
+}) {
+  const [attraction, setAttraction] = useState(3);
+  const [understanding, setUnderstanding] = useState(3);
+  const [accessibility, setAccessibility] = useState(3);
+  const [motivation, setMotivation] = useState(3);
+  const [notes, setNotes] = useState("");
+  const avg = ((attraction + understanding + accessibility + motivation) / 4).toFixed(1);
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+      <div className="bg-surface rounded-xl border border-border shadow-lg w-full max-w-md">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="font-semibold text-sm text-foreground">Fit 평가</h2>
+          <p className="text-xs text-muted mt-0.5">{card.title}</p>
+        </div>
+        <div className="p-5 space-y-4">
+          <ScoreSlider label="끌림 — 이 문제가 얼마나 끌리는가?" value={attraction} onChange={setAttraction} />
+          <ScoreSlider label="이해도 — 이 문제를 얼마나 잘 아는가?" value={understanding} onChange={setUnderstanding} />
+          <ScoreSlider label="접근성 — 고객에게 접근 가능한가?" value={accessibility} onChange={setAccessibility} />
+          <ScoreSlider label="장기 동기 — 3년 뒤에도 이 문제를 풀고 싶을까?" value={motivation} onChange={setMotivation} />
+          <div>
+            <label className="text-xs text-muted mb-1 block">메모 (선택)</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="이 문제에 대해 느끼는 것, 아는 것..."
+              className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-secondary">
+              평균 Fit 점수: <span className="text-violet-600 font-bold text-xl">{avg}</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm text-secondary hover:bg-canvas">취소</button>
+              <button
+                onClick={() => { onSave({ attraction, understanding, accessibility, motivation, notes }); onClose(); }}
+                className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500"
+              >
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function AddCardModal({ onClose, onSave }: { onClose: () => void; onSave: (data: Partial<ProblemCard>) => void }) {
   const [form, setForm] = useState({
@@ -195,7 +269,6 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
           <button onClick={onClose}><X size={16} className="text-subtle" /></button>
         </div>
         <div className="p-5 space-y-5">
-          {/* 데이터 소스 */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted">데이터 소스</p>
             <div className="flex gap-3">
@@ -211,7 +284,6 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
             </div>
           </div>
 
-          {/* 관심 분야 */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted">관심 분야 <span className="text-subtle font-normal">(복수 선택)</span></p>
             <div className="flex flex-wrap gap-2">
@@ -227,7 +299,6 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
             </div>
           </div>
 
-          {/* 맥락 */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted">맥락 <span className="text-subtle font-normal">(선택)</span></p>
             <input
@@ -278,9 +349,7 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
                   key={i}
                   onClick={() => toggleCard(i)}
                   className={`w-full text-left rounded-lg border p-4 space-y-1 transition-colors ${
-                    selected.has(i)
-                      ? "border-violet-400 bg-violet-50"
-                      : "border-border bg-canvas opacity-60"
+                    selected.has(i) ? "border-violet-400 bg-violet-50" : "border-border bg-canvas opacity-60"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -312,7 +381,15 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
   );
 }
 
-function DetailPanel({ card, onClose }: { card: ProblemCard; onClose: () => void }) {
+function DetailPanel({
+  card,
+  onClose,
+  onEvaluate,
+}: {
+  card: ProblemCard;
+  onClose: () => void;
+  onEvaluate: (card: ProblemCard) => void;
+}) {
   const fields = [
     { label: "누가 겪는가", value: card.who },
     { label: "언제 겪는가", value: card.when },
@@ -381,12 +458,14 @@ function DetailPanel({ card, onClose }: { card: ProblemCard; onClose: () => void
         </div>
 
         <div className="px-5 py-4 border-t border-border shrink-0">
-          <a
-            href="/fit"
+          <button
+            onClick={() => { onEvaluate(card); onClose(); }}
             className="flex items-center justify-center w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
           >
-            Fit 평가하기
-          </a>
+            {card.fitEvaluations.length > 0 ? (
+              <><Star size={14} className="mr-1.5 fill-white" />Fit 재평가하기</>
+            ) : "Fit 평가하기"}
+          </button>
         </div>
       </div>
     </>
@@ -396,9 +475,13 @@ function DetailPanel({ card, onClose }: { card: ProblemCard; onClose: () => void
 export default function ProblemsPage() {
   const [cards, setCards] = useState<ProblemCard[]>([]);
   const [q, setQ] = useState("");
+  const [filterSource, setFilterSource] = useState("");
+  const [filterStage, setFilterStage] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showScout, setShowScout] = useState(false);
   const [selectedCard, setSelectedCard] = useState<ProblemCard | null>(null);
+  const [evaluatingCard, setEvaluatingCard] = useState<ProblemCard | null>(null);
 
   const fetchCards = useCallback(async () => {
     const res = await fetch(`/api/problems${q ? `?q=${q}` : ""}`);
@@ -431,6 +514,26 @@ export default function ProblemsPage() {
     await fetchCards();
   }
 
+  async function saveFitEvaluation(problemId: string, data: { attraction: number; understanding: number; accessibility: number; motivation: number; notes: string }) {
+    await fetch("/api/fit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problemCardId: problemId, ...data }),
+    });
+    await fetchCards();
+  }
+
+  const uniqueSources = [...new Set(cards.map(c => c.source).filter(Boolean))];
+  const uniqueStages = [...new Set(cards.map(c => c.stage).filter(Boolean))];
+  const uniqueCategories = [...new Set(cards.map(c => c.category).filter(Boolean))];
+
+  const filtered = cards
+    .filter(c => !filterSource || c.source === filterSource)
+    .filter(c => !filterStage || c.stage === filterStage)
+    .filter(c => !filterCategory || c.category === filterCategory);
+
+  const hasActiveFilters = filterSource || filterStage || filterCategory;
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -457,18 +560,58 @@ export default function ProblemsPage() {
         </div>
       </div>
 
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="문제 검색..."
-          className="w-full max-w-sm rounded-lg border border-border bg-surface pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-        />
+      <div className="space-y-3">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="문제 검색..."
+            className="w-full max-w-sm rounded-lg border border-border bg-surface pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          <select
+            value={filterSource}
+            onChange={e => setFilterSource(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="">소스 전체</option>
+            {uniqueSources.map(s => <option key={s} value={s}>{SOURCE_LABELS[s] ?? s}</option>)}
+          </select>
+          <select
+            value={filterStage}
+            onChange={e => setFilterStage(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="">단계 전체</option>
+            {uniqueStages.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select
+            value={filterCategory}
+            onChange={e => setFilterCategory(e.target.value)}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="">카테고리 전체</option>
+            {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setFilterSource(""); setFilterStage(""); setFilterCategory(""); }}
+              className="text-xs text-muted hover:text-secondary px-2 py-2"
+            >
+              초기화
+            </button>
+          )}
+          {hasActiveFilters && (
+            <span className="text-xs text-muted">{filtered.length}개 표시</span>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {cards.map((card) => (
+        {filtered.map((card) => (
           <Card key={card.id} className="flex flex-col gap-3 hover:border-border-strong transition-colors cursor-pointer" onClick={() => setSelectedCard(card)}>
             <CardHeader className="mb-0">
               <div className="flex items-start justify-between gap-2">
@@ -512,7 +655,20 @@ export default function ProblemsPage() {
 
       {showAdd && <AddCardModal onClose={() => setShowAdd(false)} onSave={saveCard} />}
       {showScout && <ScoutModal onClose={() => setShowScout(false)} onImport={importCards} />}
-      {selectedCard && <DetailPanel card={selectedCard} onClose={() => setSelectedCard(null)} />}
+      {selectedCard && (
+        <DetailPanel
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+          onEvaluate={(card) => setEvaluatingCard(card)}
+        />
+      )}
+      {evaluatingCard && (
+        <FitEvaluateModal
+          card={evaluatingCard}
+          onClose={() => setEvaluatingCard(null)}
+          onSave={(data) => saveFitEvaluation(evaluatingCard.id, data)}
+        />
+      )}
     </div>
   );
 }

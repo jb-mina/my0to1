@@ -31,11 +31,19 @@ type ValidationPlan = {
 };
 type ProblemCard = { id: string; title: string; who: string; fitEvaluations: { totalScore: number }[] };
 
+const STATUS_TABS = [
+  { key: "all", label: "전체" },
+  { key: "active", label: "진행 중" },
+  { key: "completed", label: "완료" },
+  { key: "paused", label: "보류" },
+] as const;
+
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { variant: "amber" | "green" | "blue"; label: string }> = {
+  const map: Record<string, { variant: "amber" | "green" | "blue" | "default"; label: string }> = {
     draft: { variant: "amber", label: "초안" },
     active: { variant: "green", label: "진행 중" },
     completed: { variant: "blue", label: "완료" },
+    paused: { variant: "default", label: "보류" },
   };
   const { variant, label } = map[status] ?? map.draft;
   return <Badge variant={variant}>{label}</Badge>;
@@ -205,12 +213,15 @@ function PlanCard({ plan, onUpdate }: { plan: ValidationPlan; onUpdate: () => vo
           )}
 
           <div className="flex items-center justify-between pt-2 border-t border-border">
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {plan.status !== "active" && (
                 <button onClick={() => saveStatus("active")} className="text-xs rounded-lg bg-green-50 border border-green-200 text-green-700 px-3 py-1.5 hover:bg-green-100 transition-colors">진행 중으로</button>
               )}
               {plan.status !== "completed" && (
                 <button onClick={() => saveStatus("completed")} className="text-xs rounded-lg bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 hover:bg-blue-100 transition-colors">완료로</button>
+              )}
+              {plan.status !== "paused" && (
+                <button onClick={() => saveStatus("paused")} className="text-xs rounded-lg bg-neutral-50 border border-neutral-200 text-neutral-600 px-3 py-1.5 hover:bg-neutral-100 transition-colors">보류하기</button>
               )}
             </div>
             <button
@@ -283,6 +294,7 @@ export default function ValidationPage() {
   const [plans, setPlans] = useState<ValidationPlan[]>([]);
   const [showNew, setShowNew] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [statusTab, setStatusTab] = useState<"all" | "active" | "completed" | "paused">("all");
 
   const fetchPlans = useCallback(async () => {
     const res = await fetch("/api/validation");
@@ -302,6 +314,8 @@ export default function ValidationPage() {
     setCreating(false);
   }
 
+  const filteredPlans = statusTab === "all" ? plans : plans.filter((p) => p.status === statusTab);
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -320,16 +334,45 @@ export default function ValidationPage() {
         </button>
       </div>
 
-      {plans.length === 0 && !creating && (
+      {/* 상태 탭 */}
+      <div className="flex gap-1 border-b border-border">
+        {STATUS_TABS.map(({ key, label }) => {
+          const count = key === "all" ? plans.length : plans.filter((p) => p.status === key).length;
+          return (
+            <button
+              key={key}
+              onClick={() => setStatusTab(key)}
+              className={`px-3 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                statusTab === key
+                  ? "border-violet-600 text-violet-600"
+                  : "border-transparent text-muted hover:text-secondary"
+              }`}
+            >
+              {label}
+              {count > 0 && (
+                <span className={`ml-1.5 text-xs rounded-full px-1.5 py-0.5 ${
+                  statusTab === key ? "bg-violet-100 text-violet-700" : "bg-wash text-tertiary"
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {filteredPlans.length === 0 && !creating && (
         <div className="text-center py-16 text-subtle">
           <ClipboardList size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">아직 검증 플랜이 없습니다</p>
-          <p className="text-xs mt-1">Fit 평가한 문제에서 플랜을 생성해보세요</p>
+          <p className="text-sm">
+            {statusTab === "all" ? "아직 검증 플랜이 없습니다" : `${STATUS_TABS.find(t => t.key === statusTab)?.label} 플랜이 없습니다`}
+          </p>
+          {statusTab === "all" && <p className="text-xs mt-1">Fit 평가한 문제에서 플랜을 생성해보세요</p>}
         </div>
       )}
 
       <div className="space-y-4">
-        {plans.map((plan) => (
+        {filteredPlans.map((plan) => (
           <PlanCard key={plan.id} plan={plan} onUpdate={fetchPlans} />
         ))}
       </div>
