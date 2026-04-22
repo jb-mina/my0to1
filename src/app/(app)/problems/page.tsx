@@ -26,12 +26,6 @@ const SOURCE_LABELS: Record<string, string> = {
   producthunt: "Product Hunt", appstore: "App Store", manual: "직접 추가",
 };
 
-const SCOUT_PRESETS = [
-  "YC W2026 배치 중 Healthcare, Consumer 카테고리 흥미로운 문제 5개",
-  "Sequoia 포트폴리오 중 Productivity, B2B SaaS 문제 5개",
-  "한국 스타트업 생태계에서 Seed 단계로 풀고 있는 문제 5개",
-  "Product Hunt 최근 트렌드에서 발견되는 반복 문제 5개",
-];
 
 function AddCardModal({ onClose, onSave }: { onClose: () => void; onSave: (data: Partial<ProblemCard>) => void }) {
   const [form, setForm] = useState({
@@ -101,18 +95,53 @@ function AddCardModal({ onClose, onSave }: { onClose: () => void; onSave: (data:
   );
 }
 
+const SCOUT_SOURCES = [
+  { id: "producthunt", label: "Product Hunt" },
+  { id: "appstore", label: "App Store" },
+  { id: "news", label: "투자 뉴스" },
+];
+
+const SCOUT_TOPICS = [
+  "건강/헬스케어", "생산성", "교육", "반려동물", "재무/핀테크",
+  "커리어", "식품/음식", "여행", "B2B/SaaS", "개발자도구",
+  "멘탈헬스", "환경/지속가능성", "쇼핑", "엔터테인먼트",
+];
+
+function buildScoutQuery(sources: string[], topics: string[], context: string): string {
+  const srcLabel = sources.map(s =>
+    s === "producthunt" ? "Product Hunt" :
+    s === "appstore" ? "App Store 앱스토어" : "투자 뉴스"
+  ).join(", ");
+  const topicStr = topics.length > 0 ? topics.join(", ") + " 관련 " : "";
+  const ctxStr = context.trim() ? ` (맥락: ${context.trim()})` : "";
+  return `${srcLabel}에서 ${topicStr}문제 5개${ctxStr}`;
+}
+
 function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (cards: Partial<ProblemCard>[]) => void }) {
-  const [query, setQuery] = useState("");
+  const [sources, setSources] = useState<Set<string>>(new Set(["producthunt"]));
+  const [topics, setTopics] = useState<Set<string>>(new Set());
+  const [context, setContext] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [stage, setStage] = useState<string | null>(null);
   const [result, setResult] = useState("");
   const [parsed, setParsed] = useState<Partial<ProblemCard>[]>([]);
   const [parseError, setParseError] = useState(false);
-
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
+  function toggleSource(id: string) {
+    setSources(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
+  function toggleTopic(t: string) {
+    setTopics(prev => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n; });
+  }
+
+  const canRun = sources.size > 0 && !streaming;
+
   async function runScout() {
-    if (!query.trim() || streaming) return;
+    if (!canRun) return;
+    const query = buildScoutQuery([...sources], [...topics], context);
     setStreaming(true);
+    setStage(null);
     setResult("");
     setParsed([]);
     setSelected(new Set());
@@ -129,11 +158,16 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
       const { done, value } = await reader.read();
       if (done) break;
       text += decoder.decode(value);
-      setResult(text);
+      const stageMatches = text.match(/\|\|STAGE\|\|([^\n]+)/g);
+      if (stageMatches?.length)
+        setStage(stageMatches[stageMatches.length - 1].replace("||STAGE||", "").trim());
+      setResult(text.replace(/\|\|STAGE\|\|[^\n]*\n?/g, ""));
     }
+    setStage(null);
     setStreaming(false);
+    const cleanText = text.replace(/\|\|STAGE\|\|[^\n]*\n?/g, "");
     try {
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      const jsonMatch = cleanText.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const cards = JSON.parse(jsonMatch[0]);
         setParsed(cards);
@@ -160,41 +194,67 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
           </div>
           <button onClick={onClose}><X size={16} className="text-subtle" /></button>
         </div>
-        <div className="p-5 space-y-4">
-          <div className="flex gap-2">
+        <div className="p-5 space-y-5">
+          {/* 데이터 소스 */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted">데이터 소스</p>
+            <div className="flex gap-3">
+              {SCOUT_SOURCES.map(s => (
+                <label key={s.id} className={`flex items-center gap-2 cursor-pointer rounded-lg border px-4 py-2.5 text-sm transition-colors ${sources.has(s.id) ? "border-violet-400 bg-violet-50 text-violet-700" : "border-border text-secondary hover:bg-canvas"}`}>
+                  <input type="checkbox" className="hidden" checked={sources.has(s.id)} onChange={() => toggleSource(s.id)} />
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center text-xs font-bold shrink-0 ${sources.has(s.id) ? "bg-violet-600 border-violet-600 text-white" : "border-border-strong"}`}>
+                    {sources.has(s.id) ? "✓" : ""}
+                  </span>
+                  {s.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* 관심 분야 */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted">관심 분야 <span className="text-subtle font-normal">(복수 선택)</span></p>
+            <div className="flex flex-wrap gap-2">
+              {SCOUT_TOPICS.map(t => (
+                <button
+                  key={t}
+                  onClick={() => toggleTopic(t)}
+                  className={`text-xs rounded-full px-3 py-1.5 border transition-colors ${topics.has(t) ? "bg-violet-600 border-violet-600 text-white" : "bg-wash border-transparent hover:bg-neutral-200 text-tertiary"}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 맥락 */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted">맥락 <span className="text-subtle font-normal">(선택)</span></p>
             <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") runScout(); }}
-              placeholder="스카우트 요청 입력..."
-              className="flex-1 rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+              placeholder='예: "1인 창업자", "번아웃", "루틴 관리"'
+              className="w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
             />
-            <button
-              onClick={runScout}
-              disabled={streaming || !query.trim()}
-              className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40"
-            >
-              {streaming ? <Loader2 size={16} className="animate-spin" /> : "탐색"}
-            </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {SCOUT_PRESETS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setQuery(p)}
-                className={`text-xs rounded-full px-3 py-1.5 transition-colors border ${
-                  query === p
-                    ? "bg-violet-50 border-violet-300 text-violet-700"
-                    : "bg-wash border-transparent hover:bg-neutral-200 text-tertiary"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
+
+          <button
+            onClick={runScout}
+            disabled={!canRun}
+            className="w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 flex items-center justify-center gap-2 transition-colors"
+          >
+            {streaming ? <><Loader2 size={14} className="animate-spin" />탐색 중...</> : "탐색"}
+          </button>
           {streaming && (
-            <div className="text-xs text-muted bg-canvas border border-border rounded-lg p-3 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
-              {result || "탐색 중..."}
+            <div className="flex items-center gap-2 text-xs text-violet-600 bg-violet-50 border border-violet-100 rounded-lg px-3 py-2.5">
+              <Loader2 size={12} className="animate-spin shrink-0" />
+              <span>{stage ?? "탐색 준비 중..."}</span>
+            </div>
+          )}
+          {streaming && result && (
+            <div className="text-xs text-muted bg-canvas border border-border rounded-lg p-3 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">
+              {result}
             </div>
           )}
           {parseError && !streaming && (
