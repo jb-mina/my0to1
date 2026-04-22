@@ -312,11 +312,93 @@ function ScoutModal({ onClose, onImport }: { onClose: () => void; onImport: (car
   );
 }
 
+function DetailPanel({ card, onClose }: { card: ProblemCard; onClose: () => void }) {
+  const fields = [
+    { label: "누가 겪는가", value: card.who },
+    { label: "언제 겪는가", value: card.when },
+    { label: "왜 겪는가", value: card.why },
+    { label: "불편함 & 비용", value: card.painPoints },
+    { label: "현재 대체재", value: card.alternatives },
+  ].filter((f) => f.value);
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-surface border-l border-border shadow-xl z-50 flex flex-col">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-border shrink-0">
+          <div className="space-y-2 pr-4">
+            <h2 className="font-semibold text-sm text-foreground leading-snug">{card.title}</h2>
+            <div className="flex flex-wrap gap-1">
+              {card.source !== "manual" && (
+                <Badge variant="blue">{SOURCE_LABELS[card.source] ?? card.source}</Badge>
+              )}
+              {card.stage && <Badge variant="amber">{card.stage}</Badge>}
+              {card.category && <Badge variant="default">{card.category}</Badge>}
+              {card.fitEvaluations.length > 0 && (
+                <span className="text-xs font-semibold text-violet-700 bg-violet-100 border border-violet-200 rounded-full px-2 py-0.5">
+                  Fit {card.fitEvaluations[0].totalScore.toFixed(1)}
+                </span>
+              )}
+            </div>
+          </div>
+          <button onClick={onClose} className="shrink-0 text-subtle hover:text-secondary mt-0.5">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {fields.map((f) => (
+            <div key={f.label}>
+              <p className="text-xs font-medium text-muted mb-1">{f.label}</p>
+              <p className="text-sm text-body leading-relaxed">{f.value}</p>
+            </div>
+          ))}
+
+          {card.tags && (
+            <div>
+              <p className="text-xs font-medium text-muted mb-1.5">태그</p>
+              <div className="flex flex-wrap gap-1.5">
+                {card.tags.split(",").filter(Boolean).map((t) => (
+                  <span key={t} className="text-xs bg-wash text-tertiary rounded px-2 py-1">
+                    {t.trim()}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {card.sourceUrl && (
+            <a
+              href={card.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-violet-600 hover:text-violet-500"
+            >
+              <ExternalLink size={13} />
+              출처 보기
+            </a>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t border-border shrink-0">
+          <a
+            href="/fit"
+            className="flex items-center justify-center w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
+          >
+            Fit 평가하기
+          </a>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ProblemsPage() {
   const [cards, setCards] = useState<ProblemCard[]>([]);
   const [q, setQ] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [showScout, setShowScout] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<ProblemCard | null>(null);
 
   const fetchCards = useCallback(async () => {
     const res = await fetch(`/api/problems${q ? `?q=${q}` : ""}`);
@@ -387,7 +469,7 @@ export default function ProblemsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {cards.map((card) => (
-          <Card key={card.id} className="flex flex-col gap-3 hover:border-border-strong transition-colors">
+          <Card key={card.id} className="flex flex-col gap-3 hover:border-border-strong transition-colors cursor-pointer" onClick={() => setSelectedCard(card)}>
             <CardHeader className="mb-0">
               <div className="flex items-start justify-between gap-2">
                 <CardTitle className="text-sm leading-snug">{card.title}</CardTitle>
@@ -419,7 +501,7 @@ export default function ProblemsPage() {
                 ))}
               </div>
               {card.sourceUrl && (
-                <a href={card.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-subtle hover:text-tertiary">
+                <a href={card.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-subtle hover:text-tertiary" onClick={(e) => e.stopPropagation()}>
                   <ExternalLink size={12} />
                 </a>
               )}
@@ -430,6 +512,7 @@ export default function ProblemsPage() {
 
       {showAdd && <AddCardModal onClose={() => setShowAdd(false)} onSave={saveCard} />}
       {showScout && <ScoutModal onClose={() => setShowScout(false)} onImport={importCards} />}
+      {selectedCard && <DetailPanel card={selectedCard} onClose={() => setSelectedCard(null)} />}
     </div>
   );
 }
