@@ -69,7 +69,7 @@ Self map · Problem universe · Founder-problem fit · Validation backlog
     - 국내외 Seed 투자 스타트업·시장 기사·커뮤니티 등을 기반으로 Problem universe 후보를 수집하고, 문제·고객·현재 대체재를 요약한다
 ● Fit Judge Agent
     - Self map과 Problem universe를 비교해 "fit 있어 보이는 문제/사례"를 추천 리스트로 만들고, Mina님의 셀프 평가를 돕는다.
-● Validation Design & Coach Agent
+● Validation Design & Coach Agent [핵심]
     - 누적된 유저의 컨텍스트(Self Map / 과거 인터뷰 결과 / 이전에 깬 가설들) 위에서, 적합한 한 걸음을 처방한다
     - 이 문제가 진짜 사업(o to1)이 될지를 가르는 4가지 핵심 가설(문제 존재 여부 / 심각도 / 솔루션 핏 / 지불 의사)을 각각 가장 싸고 빠르게 깨는 검증 가이드를 제공한다.
     - "누구를 대상으로" "무엇을 어떻게 검증할지" 인터뷰 질문이나 설문, 실험 설계 및 방법, 성공/실패 시그널 등 1pager 기반으로 구체적이고도 명확하게 설계해 제공한다.
