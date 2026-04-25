@@ -85,3 +85,27 @@
 **미정**: 1pager 내 가설 섹션의 정확한 입력 필드와 데이터 모델 마이그레이션은 후속 플래닝에서 결정.
 
 ---
+
+## DB로 Neon 채택 — 사유 명시화
+**날짜**: 2026-04-25
+**결정**: Postgres BaaS로 Neon 유지. Supabase의 Auth/Storage/Realtime은 사용하지 않음.
+**이유**: 현재는 Postgres만 필요(인증은 단순 패스워드 게이트, 스토리지·실시간 미사용). Neon DB 브랜칭이 Vercel preview 환경과 정합. Postgres 표준 의존이라 lock-in이 낮아 후속 옮김 비용도 작음. Supabase의 batteries-included는 지금 가치보다 학습/관리 비용이 큼.
+**버리는 것**: Auth + Storage + Realtime이 한 SDK에 묶이는 편의성. **다음 마일스톤(랜딩 수요검증) 직후 Auth 도입 예정** — 그 시점에 Supabase Auth vs Clerk/Auth.js 재검토.
+
+---
+
+## ValidationPlan 제거 + SolutionHypothesis 1급 엔티티 승격
+**날짜**: 2026-04-25
+**결정**: `ValidationPlan` 모델 제거. `SolutionHypothesis`(ProblemCard 1:N) 신설. `Hypothesis`는 단일 테이블 + 두 nullable FK(`problemCardId`, `solutionHypothesisId`) 패턴으로 부모 분기. existence/severity는 ProblemCard에, fit/willingness는 SolutionHypothesis에 매달림. `RealityCheck`는 SolutionHypothesis로 FK 이전.
+**이유**: 4가설 중 existence/severity는 솔루션 무관(=문제 단위), fit/willingness는 솔루션 의존(=솔루션 단위). 한 ValidationPlan이 두 단위를 묶어 가지면 (a) 솔루션 iteration 시 누적 증거가 끊기고, (b) 솔루션 가설이 검증 계획의 사이드 아웃풋으로 약하게 다뤄지는 두 함정 발생. 솔루션을 1급으로 승격해야 Real Moat(누적 컨텍스트) 정합성이 살아남.
+**버리는 것**: 직전 결정 "1pager 한 화면 안에 가설 섹션 배치"를 사실상 뒤집음. 1pager 응집은 ProblemCard 단위 허브 페이지(`/validation/[problemCardId]`)가 담당. 옛 결정은 historical로 남기되, 이 항목 본문이 뒤집은 사유를 짚는다. 기존 ValidationPlan 데이터는 손실 수용(본인 작성 데이터뿐).
+
+---
+
+## 솔루션 가설 입력 방식 — 사용자 직접 입력 + 에이전트 후보 제안 결합
+**날짜**: 2026-04-25
+**결정**: 사용자가 직접 statement를 입력하거나, Solution Suggester 에이전트로부터 후보 3개를 받아 선택·편집해 저장하는 두 진입점을 제공. 두 진입점은 동일한 입력 폼으로 수렴.
+**이유**: "사용자를 대신해 결정하지 않는다" 원칙 준수(직접 입력). 0to1 단계의 막막함 완화(에이전트 후보). 두 길을 같은 폼으로 수렴해 데이터 모델·UI 일관성 유지. 에이전트는 후보 제안에 머물고 선택·편집은 사용자 결정.
+**버리는 것**: 에이전트 단독 자동 생성(자기결정 원칙 위반). 사용자 단독 입력만(0to1 막막함 비대응).
+
+---
