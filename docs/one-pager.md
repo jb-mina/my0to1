@@ -1,4 +1,4 @@
-# My 0to1 (기존: Founder Discovery) — One-Pager
+# My 0to1 
 
 ## THE VISION
 
