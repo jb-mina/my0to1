@@ -105,7 +105,7 @@ export function EmailSignupForm({
           if (error) setError(null);
         }}
         placeholder="your@email.com"
-        className="flex-1 rounded-xl border border-amber-500/40 bg-white/5 px-5 py-4 text-base text-white placeholder:text-white/30 hover:border-amber-500/60 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/50 transition-colors"
+        className="flex-1 rounded-xl border border-amber-500/20 bg-black/30 px-5 py-4 text-base text-white placeholder:text-white/30 hover:border-amber-500/40 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/40 transition-colors"
       />
       <button
         type="submit"

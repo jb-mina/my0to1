@@ -40,13 +40,6 @@ const STAGES: Stage[] = [
 export function CycleDiagram() {
   return (
     <>
-      {/* Mobile: vertical stack */}
-      <div className="grid grid-cols-1 gap-4 md:hidden">
-        {STAGES.map((s) => (
-          <StageCard key={s.num} stage={s} compact />
-        ))}
-      </div>
-
       {/* Desktop: circular diagram */}
       <div className="relative mx-auto hidden h-[760px] w-full max-w-[860px] md:block">
         <svg
@@ -54,7 +47,6 @@ export function CycleDiagram() {
           viewBox="0 0 860 760"
           aria-hidden
         >
-          {/* Outer dashed orbit */}
           <circle
             cx={430}
             cy={380}
@@ -65,7 +57,6 @@ export function CycleDiagram() {
             strokeWidth="1.5"
             strokeDasharray="4 10"
           />
-          {/* Inner solid orbit */}
           <circle
             cx={430}
             cy={380}
@@ -75,7 +66,6 @@ export function CycleDiagram() {
             strokeOpacity="0.85"
             strokeWidth="2.5"
           />
-          {/* Center radial glow */}
           <circle
             cx={430}
             cy={380}
@@ -89,18 +79,12 @@ export function CycleDiagram() {
               <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
             </radialGradient>
           </defs>
-          {/* Clockwise flow arrows on the inner orbit */}
-          {/* 12 o'clock: pointing right */}
           <polygon points="430,148 446,160 430,172" fill="#f59e0b" />
-          {/* 3 o'clock: pointing down */}
           <polygon points="650,380 638,396 622,380" fill="#f59e0b" />
-          {/* 6 o'clock: pointing left */}
           <polygon points="430,612 414,600 430,588" fill="#f59e0b" />
-          {/* 9 o'clock: pointing up */}
           <polygon points="210,380 222,364 238,380" fill="#f59e0b" />
         </svg>
 
-        {/* Center label */}
         <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-amber-400/80">
             Compounding
@@ -111,28 +95,31 @@ export function CycleDiagram() {
           <p className="text-xs text-white/50">매번 더 또렷</p>
         </div>
 
-        {/* 12 o'clock — Self Map */}
         <div className="absolute left-1/2 top-0 w-64 -translate-x-1/2">
-          <StageCard stage={STAGES[0]} />
+          <DiagramCard stage={STAGES[0]} />
         </div>
-        {/* 3 o'clock — Problem Universe */}
         <div className="absolute right-0 top-1/2 w-64 -translate-y-1/2">
-          <StageCard stage={STAGES[1]} />
+          <DiagramCard stage={STAGES[1]} />
         </div>
-        {/* 6 o'clock — Founder-Problem Fit */}
         <div className="absolute bottom-0 left-1/2 w-64 -translate-x-1/2">
-          <StageCard stage={STAGES[2]} />
+          <DiagramCard stage={STAGES[2]} />
         </div>
-        {/* 9 o'clock — Validation Backlog */}
         <div className="absolute left-0 top-1/2 w-64 -translate-y-1/2">
-          <StageCard stage={STAGES[3]} />
+          <DiagramCard stage={STAGES[3]} />
         </div>
+      </div>
+
+      {/* Detail grid — visible on all viewports, sits below the diagram on desktop */}
+      <div className="mt-12 grid grid-cols-1 gap-5 md:mt-20 md:grid-cols-2 md:gap-6">
+        {STAGES.map((s, i) => (
+          <DetailCard key={s.num} stage={s} step={i + 1} />
+        ))}
       </div>
     </>
   );
 }
 
-function StageCard({ stage, compact }: { stage: Stage; compact?: boolean }) {
+function DiagramCard({ stage }: { stage: Stage }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
       <p className="text-2xl font-bold text-amber-400">{stage.num}</p>
@@ -140,11 +127,35 @@ function StageCard({ stage, compact }: { stage: Stage; compact?: boolean }) {
         {stage.title}
       </p>
       <p className="mt-1 text-xs text-amber-300/80">{stage.tagline}</p>
-      {compact && (
-        <p className="mt-3 text-sm leading-relaxed text-white/60">
-          {stage.desc}
-        </p>
-      )}
+    </div>
+  );
+}
+
+function DetailCard({ stage, step }: { stage: Stage; step: number }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-baseline gap-3">
+          <span className="text-4xl md:text-5xl font-bold text-amber-400">
+            {stage.num}
+          </span>
+          <span className="text-[10px] md:text-xs text-white/45 uppercase tracking-[0.25em]">
+            Step {step} / 4
+          </span>
+        </div>
+        <span className="text-[11px] md:text-xs text-amber-300/80 mt-2">
+          {stage.arrow}
+        </span>
+      </div>
+      <h3 className="text-xl md:text-2xl font-bold text-white mb-1.5">
+        {stage.title}
+      </h3>
+      <p className="text-sm md:text-base text-amber-300/90 mb-4">
+        {stage.tagline}
+      </p>
+      <p className="text-sm md:text-base text-white/65 leading-relaxed">
+        {stage.desc}
+      </p>
     </div>
   );
 }

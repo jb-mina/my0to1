@@ -27,17 +27,22 @@ export function Landing() {
         data-track-section="hero"
         className="px-6 py-16 md:py-28 max-w-4xl mx-auto text-center"
       >
-        <p className="text-xs md:text-sm text-amber-400/80 mb-7 tracking-widest">비공개 베타 · 초대장 신청 중</p>
+        <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 border border-amber-500/30 px-4 py-1.5 mb-7">
+          <span className="size-1.5 rounded-full bg-amber-400" />
+          <span className="text-xs md:text-sm tracking-wider text-amber-300">비공개 베타 · 초대장 신청 중</span>
+        </span>
         <h1 className="text-5xl md:text-7xl font-bold leading-[1.15] mb-8">
           &ldquo;무엇을 만들지&rdquo;
           <br />
           혼자 헤매고 있나요?
         </h1>
         <p className="text-base md:text-xl text-white/75 leading-relaxed mb-2">
-          나에게 진짜 맞는 문제를 찾고, 시장이 돈을 낼 만한 고통인지까지 검증해주는 개인 전담 AI 코치 팀.
+          나에게 진짜 맞는 문제를 찾고, 시장이 돈을 낼 만한 고통인지까지 검증해주는{" "}
+          <span className="text-white font-semibold">개인 전담</span> AI 코치 팀.
         </p>
         <p className="text-base md:text-xl text-white/75 mb-12">
-          1인 창업자를 위한 비즈니스 0to1 운영체제.
+          1인 창업자를 위한{" "}
+          <span className="text-white font-semibold">비즈니스 0to1 운영체제</span>.
         </p>
         <EmailSignupForm id="email-top" location="top" />
         <p className="mt-5 text-xs md:text-sm text-white/40">
@@ -196,34 +201,30 @@ export function Landing() {
             <br />
             <span className="text-amber-300">누적되는 컨텍스트의 깊이</span>입니다
           </h2>
-          <p className="text-base md:text-lg text-white/75 leading-relaxed mb-8">
-            Self Map에 쌓이는 본인의 강점·혐오·네트워크, Problem Universe에서 본 시장 케이스, 그동안 깨본 가설과 그 결과 — 이 모든 것이 누적될수록, 같은 &ldquo;이 가설 약한 것 같은데요&rdquo;라는 한마디도 백지에서 나온 것과는 정확도와 설득력이 완전히 달라집니다.
+          <p className="text-base md:text-lg text-white/75 leading-relaxed mb-10">
+            Self Map에 쌓이는 본인의 강점·혐오·네트워크, Problem Universe에서 본 시장 케이스, 그동안 깨본 가설과 그 결과 — 이 모든 것이 누적될수록, 같은{" "}
+            <span className="text-white font-semibold">&ldquo;이 가설 약한 것 같은데요&rdquo;</span>라는 한마디도 백지에서 나온 것과는{" "}
+            <span className="text-white font-semibold">정확도와 설득력이 완전히 달라집니다</span>.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <MoatLayer
-              num="L1"
-              title="Self Context"
-              desc="강점·혐오·네트워크·과거 몰입 경험"
-            />
-            <MoatLayer
-              num="L2"
-              title="Market Cases"
-              desc="Seed 스타트업이 지금 풀고 있는 문제"
-            />
-            <MoatLayer
-              num="L3"
-              title="Validated Hypotheses"
-              desc="내 손으로 직접 굴려본 실험과 결과"
-            />
+
+          <div className="flex justify-between text-[11px] md:text-xs text-white/45 mb-3">
+            <span>얕은 컨텍스트</span>
+            <span>→ 깊은 컨텍스트</span>
           </div>
-          <div className="mt-8 grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-center">
-              <p className="text-xs text-white/40 mb-1">백지 LLM</p>
-              <p className="text-sm text-white/60">매번 처음부터</p>
+          <div className="space-y-4 mb-10">
+            <MoatRow prefix="누적되는" title="Self Context" desc="강점·혐오·네트워크·과거 몰입 경험" fill={65} />
+            <MoatRow prefix="살아있는" title="Market Cases" desc="Seed 스타트업이 지금 풀고 있는 문제" fill={75} />
+            <MoatRow prefix="검증된 / 깨진" title="Hypotheses" desc="내 손으로 직접 굴려본 실험과 결과" fill={88} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3.5 text-center">
+              <p className="text-xs md:text-sm text-white/45 mb-1">백지 LLM</p>
+              <p className="text-sm md:text-base font-semibold text-white/65">매번 처음부터</p>
             </div>
-            <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-center">
-              <p className="text-xs text-amber-300 mb-1">My 0to1</p>
-              <p className="text-sm text-amber-100">매번 더 또렷하게</p>
+            <div className="rounded-xl border border-amber-400/40 bg-gradient-to-br from-amber-500/25 to-orange-600/15 px-4 py-3.5 text-center">
+              <p className="text-xs md:text-sm tracking-[0.2em] text-amber-300 mb-1">MY 0TO1</p>
+              <p className="text-sm md:text-base font-semibold text-amber-100">매번 더 또렷하게</p>
             </div>
           </div>
         </div>
@@ -340,24 +341,30 @@ function AgentCard({
   extra?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 md:p-6">
-      <div className="flex items-start justify-between mb-3">
-        <span className="text-xl text-amber-400/80">{symbol}</span>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-6 md:p-7">
+      <div className="flex items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center justify-center size-10 rounded-lg bg-amber-500/20 text-xl text-amber-300">
+            {symbol}
+          </span>
+          <div>
+            <p className="text-base md:text-lg font-bold text-white leading-tight">{name}</p>
+            <p className="text-xs md:text-sm text-amber-400 mt-0.5">{role}</p>
+          </div>
+        </div>
         {badge && (
-          <span className="text-[10px] text-amber-300 bg-amber-500/20 border border-amber-400/30 rounded px-1.5 py-0.5 font-semibold tracking-wider">
+          <span className="shrink-0 text-[10px] md:text-xs text-amber-200 bg-gradient-to-r from-amber-500/30 to-orange-500/30 border border-amber-400/40 rounded-md px-2 py-0.5 font-semibold tracking-wider">
             {badge}
           </span>
         )}
       </div>
-      <p className="text-base font-semibold text-white mb-1">{name}</p>
-      <p className="text-xs text-amber-400/80 mb-3">{role}</p>
-      <p className="text-sm text-white/60 leading-relaxed mb-3">{desc}</p>
+      <p className="text-sm md:text-base text-white/65 leading-relaxed mb-4">{desc}</p>
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {tags.map((tag) => (
             <span
               key={tag}
-              className="text-[11px] text-white/50 bg-white/5 border border-white/10 rounded-md px-2 py-0.5"
+              className="text-xs text-white/55 bg-white/5 border border-white/10 rounded-md px-2.5 py-1"
             >
               {tag}
             </span>
@@ -369,12 +376,32 @@ function AgentCard({
   );
 }
 
-function MoatLayer({ num, title, desc }: { num: string; title: string; desc: string }) {
+function MoatRow({
+  prefix,
+  title,
+  desc,
+  fill,
+}: {
+  prefix: string;
+  title: string;
+  desc: string;
+  fill: number;
+}) {
   return (
-    <div className="rounded-lg border border-amber-400/20 bg-black/30 p-3">
-      <p className="text-[10px] text-amber-400 font-mono font-bold mb-1">{num}</p>
-      <p className="text-sm font-semibold text-amber-200 mb-1">{title}</p>
-      <p className="text-xs text-white/50 leading-relaxed">{desc}</p>
+    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 items-center md:grid-cols-[140px_minmax(0,1fr)_auto]">
+      <div className="text-xs md:text-sm text-white/55 whitespace-nowrap">
+        <span className="text-white/40">{prefix}</span>{" "}
+        <span className="font-semibold text-amber-200">{title}</span>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-white/[0.06] overflow-hidden md:order-none order-3 col-span-2 md:col-span-1">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500"
+          style={{ width: `${fill}%` }}
+        />
+      </div>
+      <p className="text-xs md:text-sm text-white/55 md:text-right md:whitespace-nowrap">
+        {desc}
+      </p>
     </div>
   );
 }
