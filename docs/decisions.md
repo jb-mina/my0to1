@@ -109,3 +109,27 @@
 **버리는 것**: 에이전트 단독 자동 생성(자기결정 원칙 위반). 사용자 단독 입력만(0to1 막막함 비대응).
 
 ---
+
+## 검증 허브를 2탭(문제 / 솔루션) 구조로 채택
+**날짜**: 2026-04-25
+**결정**: `/validation/[problemCardId]` 허브를 4가설 카드 평탄 배치도, 4탭(가설별)도 아닌 **2탭(문제 / 솔루션) + 섹션 구조**로 결정. Tab 1은 existence + severity 워크스페이스, Tab 2는 솔루션 가설 패널 + fit + willingness + Reality Check.
+**이유**: 모바일 너비에서 4탭은 줄바꿈 부담. 사용자 멘탈 모델 = "문제 vs 솔루션" 양분이 자연스러움. existence + severity는 인터뷰 1번으로 함께 검증되는 경우가 많아 같은 탭에서 보는 게 실제 사용 패턴에 부합. **결정적으로**: Tab 1은 솔루션 UI 0건 → 사용자가 검증 안 한 채 솔루션부터 입력하는 흐름을 차단하는 의도가 보존됨.
+**버리는 것**: "한 화면에 4가설 한눈에" 응집감(stepper로 보완), 가설 단위 strict 워크스페이스 격리(섹션 분리로 부분 충족).
+
+---
+
+## SolutionHypothesis 상태 자동 도출 (cascade)
+**날짜**: 2026-04-25
+**결정**: `SolutionHypothesis.status` 중 `broken` / `confirmed`는 자식 `Hypothesis.status`에서 자동 도출. PATCH `/api/hypotheses/:id` 호출 시 `recomputeSolutionStatus`가 부모를 재계산. 사용자가 능동 결정하는 건 `active` / `shelved` 두 가지뿐.
+**이유**: 사용자가 솔루션 단위 broken을 직접 누르는 게 어색했음 — 가설 단위에 broken이 이미 있는데 솔루션 단위 broken을 또 명시하는 게 의미 중복. 그리고 broken vs shelved 기준이 사용자 입장에서 모호. 자동 도출하면 검증 결과가 곧 솔루션 상태로 반영되어 직관적.
+**버리는 것**: 사용자가 "이 솔루션은 broken이다"를 명시 의사 표시할 수 있는 능동 액션. 대신 fit/willingness 가설을 broken으로 표시하면 솔루션도 자동 broken으로 cascade.
+
+---
+
+## Vercel build에 `prisma migrate deploy` 자동 통합
+**날짜**: 2026-04-25
+**결정**: `package.json`의 `build` 스크립트를 `prisma migrate deploy && prisma generate && next build`로 변경. 매 Vercel 배포 시 적용 안 된 마이그레이션을 자동 deploy.
+**이유**: Phase 1 마이그레이션 적용 시 사용자가 "어떻게 마이그레이션 적용하지?"를 한참 헤맴. `migrate deploy`는 idempotent(이미 적용된 건 건너뜀)라 매 배포 안전. Prisma + Vercel 표준 패턴이고, 향후 마이그레이션 생길 때마다 동일 질문 안 나오게 박아둠.
+**버리는 것**: 마이그레이션 적용 시점을 사람이 명시 결정할 수 있는 통제력. 자동화로 약간의 통제력을 빌드 일관성과 교환.
+
+---
