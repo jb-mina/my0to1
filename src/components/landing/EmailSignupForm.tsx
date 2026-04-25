@@ -104,16 +104,16 @@ export function EmailSignupForm({
           setEmail(e.target.value);
           if (error) setError(null);
         }}
-        placeholder="you@example.com"
-        className="flex-1 rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-violet-500"
+        placeholder="your@email.com"
+        className="flex-1 rounded-xl border border-amber-500/20 bg-black/30 px-5 py-4 text-base text-white placeholder:text-white/30 hover:border-amber-500/40 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/40 transition-colors"
       />
       <button
         type="submit"
         disabled={submitting || !email.trim()}
-        className="flex items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-5 py-3 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
+        className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 text-base font-semibold text-black hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
       >
         {submitting && <Loader2 size={14} className="animate-spin" />}
-        초대 신청
+        초대장 받기 →
       </button>
       {error && (
         <p className="text-xs text-red-400 mt-1 sm:mt-0 sm:absolute sm:translate-y-12">
