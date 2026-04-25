@@ -70,6 +70,27 @@ export async function listProblemsInValidation(): Promise<ProblemValidationListI
   });
 }
 
+export type EligibleProblemForValidation = ProblemCard & {
+  fitEvaluations: { totalScore: number }[];
+};
+
+// ProblemCards that have a Fit evaluation but no validation activity yet —
+// the candidates a user can pull into "Validating" via the list page CTA.
+// Sorted by Fit score desc.
+export async function listEligibleForValidation(): Promise<EligibleProblemForValidation[]> {
+  const rows = await prisma.problemCard.findMany({
+    where: {
+      fitEvaluations: { some: {} },
+      hypotheses: { none: {} },
+      solutionHypotheses: { none: {} },
+    },
+    include: { fitEvaluations: { select: { totalScore: true } } },
+  });
+  return rows.sort(
+    (a, b) => (b.fitEvaluations[0]?.totalScore ?? 0) - (a.fitEvaluations[0]?.totalScore ?? 0),
+  );
+}
+
 export async function getHypothesis(id: string): Promise<Hypothesis | null> {
   return prisma.hypothesis.findUnique({ where: { id } });
 }
