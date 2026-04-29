@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Brain, Map, Crosshair, ClipboardList, AlertCircle } from "lucide-react";
+import { Brain, Map, Crosshair, ClipboardList } from "lucide-react";
 
 const nav = [
   { href: "/dashboard", label: "대시보드", short: "홈", icon: Map },
   { href: "/self-map", label: "Self Map", short: "Self", icon: Brain },
   { href: "/problems", label: "Problem Universe", short: "문제", icon: Crosshair },
-  { href: "/fit", label: "Founder-Problem Fit", short: "Fit", icon: AlertCircle },
   { href: "/validation", label: "Validating", short: "검증", icon: ClipboardList },
 ];
 

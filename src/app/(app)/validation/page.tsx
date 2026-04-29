@@ -86,7 +86,7 @@ export default async function ValidationListPage() {
               <>위 “검증할 문제 추가” 버튼에서 시작해보세요</>
             ) : (
               <>
-                <Link href="/fit" className="text-violet-600 hover:text-violet-500">
+                <Link href="/problems" className="text-violet-600 hover:text-violet-500">
                   Fit 평가
                 </Link>
                 한 문제에서 검증을 시작할 수 있어요

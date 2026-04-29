@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope, Star } from "lucide-react";
+import Link from "next/link";
+import { Plus, Search, Crosshair, Loader2, X, ExternalLink, Telescope, Star, Sparkles, ArrowRight, Trash2 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -18,8 +19,10 @@ type ProblemCard = {
   tags: string;
   stage: string;
   category: string;
-  fitEvaluations: { totalScore: number }[];
+  fitEvaluations: { attraction: number; understanding: number; accessibility: number; motivation: number; totalScore: number; notes: string }[];
 };
+
+type Recommendation = { id: string; reason: string };
 
 const SOURCE_LABELS: Record<string, string> = {
   yc: "YC", sequoia: "Sequoia", a16z: "a16z",
@@ -45,18 +48,20 @@ function ScoreSlider({ label, value, onChange }: { label: string; value: number;
 
 function FitEvaluateModal({
   card,
+  existing,
   onClose,
   onSave,
 }: {
   card: ProblemCard;
+  existing?: ProblemCard["fitEvaluations"][0];
   onClose: () => void;
   onSave: (data: { attraction: number; understanding: number; accessibility: number; motivation: number; notes: string }) => void;
 }) {
-  const [attraction, setAttraction] = useState(3);
-  const [understanding, setUnderstanding] = useState(3);
-  const [accessibility, setAccessibility] = useState(3);
-  const [motivation, setMotivation] = useState(3);
-  const [notes, setNotes] = useState("");
+  const [attraction, setAttraction] = useState(existing?.attraction ?? 3);
+  const [understanding, setUnderstanding] = useState(existing?.understanding ?? 3);
+  const [accessibility, setAccessibility] = useState(existing?.accessibility ?? 3);
+  const [motivation, setMotivation] = useState(existing?.motivation ?? 3);
+  const [notes, setNotes] = useState(existing?.notes ?? "");
   const avg = ((attraction + understanding + accessibility + motivation) / 4).toFixed(1);
 
   return (
@@ -385,11 +390,19 @@ function DetailPanel({
   card,
   onClose,
   onEvaluate,
+  onDelete,
 }: {
   card: ProblemCard;
   onClose: () => void;
   onEvaluate: (card: ProblemCard) => void;
+  onDelete: (id: string) => void;
 }) {
+  const isEvaluated = card.fitEvaluations.length > 0;
+  function handleDelete() {
+    if (window.confirm("이 문제 카드를 삭제하시겠습니까?\n관련 Fit 평가·검증 데이터도 함께 삭제됩니다.")) {
+      onDelete(card.id);
+    }
+  }
   const fields = [
     { label: "누가 겪는가", value: card.who },
     { label: "언제 겪는가", value: card.when },
@@ -418,9 +431,18 @@ function DetailPanel({
               )}
             </div>
           </div>
-          <button onClick={onClose} className="shrink-0 text-subtle hover:text-secondary mt-0.5">
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0 mt-0.5">
+            <button
+              onClick={handleDelete}
+              aria-label="문제 삭제"
+              className="text-subtle hover:text-red-600 transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+            <button onClick={onClose} className="text-subtle hover:text-secondary">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
@@ -457,15 +479,23 @@ function DetailPanel({
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-border shrink-0">
+        <div className="px-5 py-4 border-t border-border shrink-0 space-y-2">
           <button
             onClick={() => { onEvaluate(card); onClose(); }}
             className="flex items-center justify-center w-full rounded-lg bg-violet-600 py-2.5 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
           >
-            {card.fitEvaluations.length > 0 ? (
+            {isEvaluated ? (
               <><Star size={14} className="mr-1.5 fill-white" />Fit 재평가하기</>
             ) : "Fit 평가하기"}
           </button>
+          {isEvaluated && (
+            <Link
+              href={`/validation/${card.id}`}
+              className="flex items-center justify-center w-full rounded-lg border border-violet-200 bg-violet-50 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+            >
+              검증 시작 <ArrowRight size={14} className="ml-1" />
+            </Link>
+          )}
         </div>
       </div>
     </>
@@ -478,10 +508,14 @@ export default function ProblemsPage() {
   const [filterSource, setFilterSource] = useState("");
   const [filterStage, setFilterStage] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [filterEvaluated, setFilterEvaluated] = useState<"all" | "unevaluated" | "evaluated">("all");
+  const [sortBy, setSortBy] = useState<"recent" | "fit">("recent");
   const [showAdd, setShowAdd] = useState(false);
   const [showScout, setShowScout] = useState(false);
   const [selectedCard, setSelectedCard] = useState<ProblemCard | null>(null);
   const [evaluatingCard, setEvaluatingCard] = useState<ProblemCard | null>(null);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
 
   const fetchCards = useCallback(async () => {
     const res = await fetch(`/api/problems${q ? `?q=${q}` : ""}`);
@@ -520,7 +554,30 @@ export default function ProblemsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ problemCardId: problemId, ...data }),
     });
+    setRecommendations((rec) => rec.filter((r) => r.id !== problemId));
     await fetchCards();
+  }
+
+  async function deleteCard(id: string) {
+    await fetch("/api/problems", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setSelectedCard(null);
+    setRecommendations((rec) => rec.filter((r) => r.id !== id));
+    await fetchCards();
+  }
+
+  async function getRecommendations() {
+    setLoadingRecs(true);
+    try {
+      const res = await fetch("/api/fit", { method: "PUT" });
+      const data = await res.json();
+      setRecommendations(data.recommendations ?? []);
+    } finally {
+      setLoadingRecs(false);
+    }
   }
 
   const uniqueSources = [...new Set(cards.map(c => c.source).filter(Boolean))];
@@ -530,9 +587,21 @@ export default function ProblemsPage() {
   const filtered = cards
     .filter(c => !filterSource || c.source === filterSource)
     .filter(c => !filterStage || c.stage === filterStage)
-    .filter(c => !filterCategory || c.category === filterCategory);
+    .filter(c => !filterCategory || c.category === filterCategory)
+    .filter(c =>
+      filterEvaluated === "all" ? true :
+      filterEvaluated === "evaluated" ? c.fitEvaluations.length > 0 :
+      c.fitEvaluations.length === 0
+    )
+    .sort((a, b) => {
+      if (sortBy === "fit") {
+        return (b.fitEvaluations[0]?.totalScore ?? -1) - (a.fitEvaluations[0]?.totalScore ?? -1);
+      }
+      return 0;
+    });
 
-  const hasActiveFilters = filterSource || filterStage || filterCategory;
+  const hasActiveFilters = filterSource || filterStage || filterCategory || filterEvaluated !== "all";
+  const recIds = new Set(recommendations.map((r) => r.id));
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -552,13 +621,54 @@ export default function ProblemsPage() {
           </button>
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-secondary hover:bg-wash transition-colors"
           >
             <Plus size={14} />
             직접 추가
           </button>
+          <button
+            onClick={getRecommendations}
+            disabled={loadingRecs}
+            className="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-40 transition-colors"
+          >
+            {loadingRecs ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            Fit Judge 추천받기
+          </button>
         </div>
       </div>
+
+      {recommendations.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-medium text-secondary flex items-center gap-1.5">
+            <Sparkles size={14} className="text-violet-600" />
+            Fit Judge 추천 ({recommendations.filter((r) => cards.find((c) => c.id === r.id)).length}개)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {recommendations.map((rec) => {
+              const card = cards.find((c) => c.id === rec.id);
+              if (!card) return null;
+              return (
+                <Card
+                  key={rec.id}
+                  className="border-violet-200 bg-violet-50 cursor-pointer hover:border-violet-300 transition-colors"
+                  onClick={() => setSelectedCard(card)}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-sm">{card.title}</CardTitle>
+                  </CardHeader>
+                  <p className="text-xs text-violet-700 mb-3">{rec.reason}</p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEvaluatingCard(card); }}
+                    className="text-xs rounded-lg bg-violet-100 hover:bg-violet-200 border border-violet-200 px-3 py-1.5 text-violet-700 transition-colors"
+                  >
+                    평가하기
+                  </button>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         <div className="relative">
@@ -596,9 +706,26 @@ export default function ProblemsPage() {
             <option value="">카테고리 전체</option>
             {uniqueCategories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <select
+            value={filterEvaluated}
+            onChange={e => setFilterEvaluated(e.target.value as "all" | "unevaluated" | "evaluated")}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="all">평가 전체</option>
+            <option value="unevaluated">미평가</option>
+            <option value="evaluated">평가 완료</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value as "recent" | "fit")}
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-secondary focus:outline-none focus:ring-2 focus:ring-violet-500"
+          >
+            <option value="recent">최신순</option>
+            <option value="fit">Fit 점수순</option>
+          </select>
           {hasActiveFilters && (
             <button
-              onClick={() => { setFilterSource(""); setFilterStage(""); setFilterCategory(""); }}
+              onClick={() => { setFilterSource(""); setFilterStage(""); setFilterCategory(""); setFilterEvaluated("all"); }}
               className="text-xs text-muted hover:text-secondary px-2 py-2"
             >
               초기화
@@ -623,6 +750,9 @@ export default function ProblemsPage() {
                 )}
               </div>
               <div className="flex flex-wrap gap-1 mt-1">
+                {recIds.has(card.id) && (
+                  <span className="text-xs bg-violet-100 text-violet-700 border border-violet-200 rounded-full px-2 py-0.5">추천</span>
+                )}
                 {card.source !== "manual" && (
                   <Badge variant="blue">{SOURCE_LABELS[card.source] ?? card.source}</Badge>
                 )}
@@ -655,15 +785,20 @@ export default function ProblemsPage() {
 
       {showAdd && <AddCardModal onClose={() => setShowAdd(false)} onSave={saveCard} />}
       {showScout && <ScoutModal onClose={() => setShowScout(false)} onImport={importCards} />}
-      {selectedCard && (
-        <DetailPanel
-          card={selectedCard}
-          onClose={() => setSelectedCard(null)}
-          onEvaluate={(card) => setEvaluatingCard(card)}
-        />
-      )}
+      {selectedCard && (() => {
+        const fresh = cards.find((c) => c.id === selectedCard.id) ?? selectedCard;
+        return (
+          <DetailPanel
+            card={fresh}
+            onClose={() => setSelectedCard(null)}
+            onEvaluate={(card) => setEvaluatingCard(card)}
+            onDelete={deleteCard}
+          />
+        );
+      })()}
       {evaluatingCard && (
         <FitEvaluateModal
+          existing={evaluatingCard.fitEvaluations[0]}
           card={evaluatingCard}
           onClose={() => setEvaluatingCard(null)}
           onSave={(data) => saveFitEvaluation(evaluatingCard.id, data)}
