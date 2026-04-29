@@ -35,13 +35,14 @@ export async function PUT(req: NextRequest) {
   // Get AI recommendations based on self map
   const selfMap = await prisma.selfMapEntry.findMany();
   const problems = await prisma.problemCard.findMany({ include: { fitEvaluations: true } });
+  const candidates = problems.filter((p) => p.fitEvaluations.length === 0);
 
-  if (problems.length === 0) {
+  if (candidates.length === 0) {
     return NextResponse.json({ recommendations: [] });
   }
 
   const selfMapText = selfMap.map((e) => `[${e.category}] ${e.answer}`).join("\n");
-  const problemsText = problems
+  const problemsText = candidates
     .map((p) => `ID:${p.id} | ${p.title} | 대상:${p.who} | 불편:${p.painPoints} | 태그:${p.tags}`)
     .join("\n");
 

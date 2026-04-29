@@ -22,15 +22,15 @@ export function NextActionCard({ action }: { action: NextAction }) {
               <Sparkles size={12} /> 오늘의 다음 액션
             </p>
             <p className="text-sm text-foreground">
-              검증할 문제가 아직 없어요. Fit 평가에서 가장 끌리는 문제부터 골라보세요.
+              검증할 문제가 아직 없어요. 문제 카드를 둘러보고 Fit 평가부터 시작해보세요.
             </p>
           </div>
           <TrackedLink
-            href="/fit"
+            href="/problems"
             widget="next_action"
             className="flex items-center gap-1 text-xs text-violet-700 hover:text-violet-600 shrink-0 font-medium"
           >
-            Fit으로 <ArrowRight size={12} />
+            문제로 <ArrowRight size={12} />
           </TrackedLink>
         </div>
       </Card>

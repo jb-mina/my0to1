@@ -14,7 +14,7 @@ type Node = {
 const NODES: Node[] = [
   { stage: "self_map", label: "Self Map", caption: "나 이해하기", href: "/self-map", icon: Brain },
   { stage: "problems", label: "Problem Universe", caption: "문제 모으기", href: "/problems", icon: Crosshair },
-  { stage: "fit", label: "Founder-Problem Fit", caption: "내 문제 고르기", href: "/fit", icon: Scale },
+  { stage: "fit", label: "Founder-Problem Fit", caption: "내 문제 고르기", href: "/problems", icon: Scale },
   { stage: "problem_validation", label: "문제 검증", caption: "존재·심각도", href: "/validation", icon: Search },
   { stage: "solution_validation", label: "솔루션 검증", caption: "핏·지불 의사", href: "/validation", icon: Beaker },
 ];
