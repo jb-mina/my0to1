@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { ONE_PAGER_SECTIONS, type OnePagerSection as SectionKey } from "@/lib/db/one-pager";
 
 const SECTION_LABELS: Record<SectionKey, string> = {
@@ -68,34 +68,20 @@ export function OnePagerSection({
   onePager: OnePagerData | null;
   onChanged: () => void | Promise<void>;
 }) {
+  if (!triggerMet) return <Placeholder />;
+  if (!onePager)
+    return (
+      <CTABlock
+        solutionHypothesisId={solutionHypothesisId}
+        onChanged={onChanged}
+      />
+    );
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-            <FileText size={14} className="text-violet-600" /> 1-pager
-          </h3>
-          <p className="text-xs text-muted">
-            사업화 사고(MVP·비용·운영·수익화·리스크) — Reality Check이 이 컨텍스트를 본다
-          </p>
-        </div>
-      </div>
-
-      {!triggerMet ? (
-        <Placeholder />
-      ) : !onePager ? (
-        <CTABlock
-          solutionHypothesisId={solutionHypothesisId}
-          onChanged={onChanged}
-        />
-      ) : (
-        <Editor
-          solutionHypothesisId={solutionHypothesisId}
-          onePager={onePager}
-          onChanged={onChanged}
-        />
-      )}
-    </div>
+    <Editor
+      solutionHypothesisId={solutionHypothesisId}
+      onePager={onePager}
+      onChanged={onChanged}
+    />
   );
 }
 
