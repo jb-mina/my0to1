@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Markdown } from "@/components/ui/markdown";
 import { AxisWorkspace, type AxisWorkspaceData } from "@/components/validation/AxisWorkspace";
 import { OnePagerSection, type OnePagerData } from "@/components/validation/OnePagerSection";
 import {
@@ -262,8 +263,12 @@ function RealityCheckSection({
 
   return (
     <div>
-      {/* Action row — no title/subtitle (the tab label already says 'RC') */}
-      <div className="flex items-center justify-end mb-3">
+      {/* Action row — short description + run button. Wraps on narrow widths. */}
+      <div className="flex items-start justify-between gap-3 mb-3 flex-wrap">
+        <p className="text-xs text-muted flex-1 min-w-[12rem]">
+          냉정한 투자자·솔직한 친구·소크라테스 3 페르소나가 솔루션을 비판적으로 검토하고
+          모더레이터가 종합합니다.
+        </p>
         <button
           onClick={runRealityCheck}
           disabled={running}
@@ -284,7 +289,7 @@ function RealityCheckSection({
               <Scale size={12} />
               <p className="text-xs font-medium">중재자 종합</p>
             </div>
-            <p className="text-sm text-body whitespace-pre-wrap">{rc.moderatorSummary}</p>
+            <Markdown content={rc.moderatorSummary} className="text-body" />
           </div>
 
           {/* Personas — toggleable */}
@@ -308,7 +313,7 @@ function RealityCheckSection({
                     <Icon size={12} />
                     <p className="text-xs font-medium">{label}</p>
                   </div>
-                  <p className="text-xs text-secondary whitespace-pre-wrap">{content}</p>
+                  <Markdown content={content} className="text-secondary" />
                 </div>
               ))}
             </div>
