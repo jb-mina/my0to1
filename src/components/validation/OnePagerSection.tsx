@@ -89,7 +89,7 @@ function Placeholder() {
   return (
     <div className="rounded-lg border border-dashed border-border bg-wash px-4 py-3">
       <p className="text-xs text-muted">
-        문제 검증(존재·심각도)을 모두 확인하고 솔루션을 활성화하면 1-pager 초안을 생성할 수 있어요.
+        문제 검증을 모두 확인하고 솔루션을 활성화하면 1-pager 초안을 생성할 수 있어요.
       </p>
     </div>
   );
@@ -128,7 +128,7 @@ function CTABlock({
   return (
     <div className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3">
       <p className="text-xs text-secondary mb-2.5">
-        솔루션 핏·지불 의사 검증과 병행해 1-pager 초안을 띄워보세요. 10 섹션을 AI가 채우고, 편집은 자유롭게.
+        AI가 10 섹션 초안을 채우면 자유롭게 편집해 사업화 사고(MVP·비용·운영·수익화·리스크)를 정리할 수 있어요.
       </p>
       <button
         onClick={generate}
@@ -136,7 +136,7 @@ function CTABlock({
         className="flex items-center gap-1.5 text-xs rounded-lg bg-violet-600 px-3 py-2 text-white hover:bg-violet-500 disabled:opacity-60"
       >
         {generating ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-        {generating ? "초안 생성 중 (~10초)..." : "1-pager 초안 생성"}
+        {generating ? "초안 생성 중..." : "1-pager 초안 생성"}
       </button>
       {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
     </div>

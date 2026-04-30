@@ -179,7 +179,7 @@ function ProblemTab({
   bootstrapping: boolean;
   onUpdated: () => Promise<void>;
 }) {
-  const placeholder = bootstrapping ? "에이전트가 처방 생성 중 (~10초)..." : "처방 대기 중";
+  const placeholder = bootstrapping ? "처방 생성 중..." : "처방 대기 중";
   return (
     <div className="space-y-4">
       <AxisWorkspace hypothesis={existence} onUpdated={onUpdated} loadingPlaceholder={placeholder} />
@@ -216,16 +216,15 @@ function SolutionTab({
         <Card className="text-center py-8">
           <Sparkles size={20} className="mx-auto mb-2 text-violet-400" />
           <p className="text-sm text-tertiary">
-            이 문제에 대한 솔루션 가설을 등록하면 4 도구(핏 · 지불 의사 · 1-pager · Reality Check)로 검증을 시작할 수 있어요.
+            솔루션 가설을 등록하면 핏·지불 의사·1-pager·Reality Check로 검증을 시작할 수 있어요.
           </p>
-          <p className="text-xs text-muted mt-1.5">위 &quot;새 가설&quot; 버튼으로 시작하세요.</p>
         </Card>
       )}
 
       {hasOnlyInactive && (
         <Card className="text-center py-6">
           <p className="text-sm text-tertiary">
-            활성 솔루션이 없습니다. 위에서 보류 가설을 다시 활성화하거나 새 가설을 추가하세요.
+            활성 솔루션 없음 — 보류 가설을 활성화하거나 새 가설을 추가하세요.
           </p>
         </Card>
       )}
