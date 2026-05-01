@@ -310,20 +310,22 @@ export default function SelfMapPage() {
   const isInterview = pageMode === "interview";
   const isCanvas = pageMode === "canvas";
 
-  function handleNodeClick(entryId: string) {
+  // Triggered only when the user explicitly clicks "인터뷰에서 이 답변 보기"
+  // inside the floating detail panel — node taps just open the panel.
+  function handleJumpToEntry(entryId: string) {
     setPageMode("interview");
     setTimeout(() => scrollToEntry(entryId), 0);
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
-      {/* Top bar — page mode toggle (replaces old mobile chat/map tabs) */}
-      <div className="shrink-0 border-b border-border bg-surface px-4 py-2.5 flex items-center justify-between gap-3">
-        <h1 className="text-sm font-semibold text-foreground flex items-center gap-2">
+      {/* Top bar — page mode toggle centered (Claude-home pattern) */}
+      <div className="shrink-0 border-b border-border bg-surface px-4 py-2.5 grid grid-cols-3 items-center gap-3">
+        <h1 className="text-sm font-semibold text-foreground flex items-center gap-2 justify-self-start">
           <Brain size={16} className="text-violet-600" />
           Self Map
         </h1>
-        <div className="inline-flex items-center rounded-md border border-border bg-canvas p-0.5 text-xs">
+        <div className="inline-flex items-center rounded-md border border-border bg-canvas p-0.5 text-xs justify-self-center">
           <button
             onClick={() => setPageMode("interview")}
             className={`px-3 py-1 rounded transition-colors flex items-center gap-1.5 ${
@@ -343,20 +345,16 @@ export default function SelfMapPage() {
             캔버스
           </button>
         </div>
+        <div className="justify-self-end" />
       </div>
 
       {/* Main row */}
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
-        {/* Left main panel */}
-        {/* - interview mode: chat (mobile + desktop). */}
-        {/* - canvas mode (desktop only): node map fills the main area. */}
-        {/*   On mobile in canvas mode, the node map renders inline in the side */}
-        {/*   panel below Identity/Tension/Gap so a single column stays scannable. */}
-        <div
-          className={`flex-col flex-1 min-h-0 md:border-r md:border-border ${
-            isInterview ? "flex" : "hidden md:flex"
-          }`}
-        >
+        {/* Left main panel: chat in interview mode, node map in canvas mode. */}
+        {/* Canvas mode hides the sidebar entirely so the graph gets the full */}
+        {/* width — node click flips back to interview mode + scrolls to the */}
+        {/* card, so duplicating the sidebar here just shrinks the canvas. */}
+        <div className="flex flex-col flex-1 min-h-0 md:border-r md:border-border">
           {isInterview && (
             <>
               <div className="flex items-center gap-2 px-5 py-4 border-b border-border bg-surface">
@@ -442,26 +440,27 @@ export default function SelfMapPage() {
             </>
           )}
 
-          {/* Desktop canvas mode: node map fills the main area */}
           {isCanvas && (
-            <div className="hidden md:flex flex-1 min-h-0 p-4 bg-canvas">
-              <NodeMap refreshSignal={graphSignal} onNodeClick={handleNodeClick} />
+            <div className="flex flex-1 min-h-0 p-2 md:p-4 bg-canvas">
+              <NodeMap
+                refreshSignal={graphSignal}
+                entries={entries}
+                onJumpToEntry={handleJumpToEntry}
+              />
             </div>
           )}
         </div>
 
-        {/* Right side panel — Identity/Tension/Gap + card list (+mobile canvas: NodeMap inline) */}
-        {/* - On mobile, hidden in interview mode (chat takes the whole screen). */}
-        {/* - On mobile in canvas mode, takes the full width with NodeMap inline. */}
+        {/* Right side panel — only visible in interview mode on desktop. */}
+        {/* Mobile interview mode keeps chat full-screen; the sidebar in that */}
+        {/* viewport is a follow-up. Canvas mode hides this panel entirely. */}
         <div
           className={`flex-col overflow-y-auto bg-surface md:w-96 lg:w-[28rem] xl:w-[32rem] md:shrink-0 ${
-            isInterview ? "hidden md:flex" : "flex flex-1"
+            isInterview ? "hidden md:flex" : "hidden"
           }`}
         >
           <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-            <h2 className="text-sm font-semibold text-foreground">
-              {isCanvas ? "Self Map · 캔버스" : "Self Map"}
-            </h2>
+            <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
             <button
               onClick={async () => {
                 await fetchEntries();
@@ -492,13 +491,6 @@ export default function SelfMapPage() {
                 onDismissTension={dismissTension}
                 onStartGapInterview={startGapInterview}
               />
-            )}
-
-            {/* Mobile-only: inline node map under Identity in canvas mode */}
-            {isCanvas && (
-              <div className="md:hidden h-[60vh]">
-                <NodeMap refreshSignal={graphSignal} onNodeClick={handleNodeClick} />
-              </div>
             )}
 
             {entries.length === 0 && (

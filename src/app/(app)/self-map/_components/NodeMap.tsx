@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape, { type Core, type ElementDefinition } from "cytoscape";
 import coseBilkent from "cytoscape-cose-bilkent";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, X } from "lucide-react";
 
 let coseRegistered = false;
 
@@ -22,6 +22,14 @@ export type GraphEdge = {
 };
 
 type GraphResponse = { nodes: GraphNode[]; edges: GraphEdge[] };
+
+export type NodeMapEntry = {
+  id: string;
+  category: string;
+  question: string;
+  answer: string;
+  tags: string;
+};
 
 const CATEGORY_COLOR: Record<string, string> = {
   interests: "#8b5cf6",
@@ -46,25 +54,32 @@ function colorFor(category: string): string {
 }
 
 function shortLabel(question: string): string {
-  // 8자 truncate. 라벨이 노드 옆에서 다른 노드와 겹치는 걸 막기 위해 최소화.
-  // 전체 question은 hover 시 footer로 노출.
+  // 노드 옆 라벨은 8자까지만. 전체는 호버 footer + 클릭 시 detail 패널에서 노출.
   const trimmed = question.trim();
   return trimmed.length > 8 ? `${trimmed.slice(0, 8)}…` : trimmed;
 }
 
 export function NodeMap({
   refreshSignal,
-  onNodeClick,
+  entries,
+  onJumpToEntry,
 }: {
   refreshSignal: string | number;
-  onNodeClick: (entryId: string) => void;
+  entries: NodeMapEntry[];
+  // Optional — when provided, the detail panel exposes "인터뷰에서 이 답변 보기"
+  // which calls back so the page can flip to interview mode + scroll.
+  onJumpToEntry?: (entryId: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cyRef = useRef<Core | null>(null);
   const [graph, setGraph] = useState<GraphResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  const hoveredEntry = hoveredNodeId ? entries.find((e) => e.id === hoveredNodeId) : null;
+  const selectedEntry = selectedNodeId ? entries.find((e) => e.id === selectedNodeId) : null;
 
   // Fetch on mount + whenever refreshSignal flips.
   useEffect(() => {
@@ -145,8 +160,11 @@ export function NodeMap({
           },
         },
         {
-          selector: "node:active",
-          style: { "overlay-opacity": 0.1 },
+          selector: "node:selected",
+          style: {
+            "border-width": 3,
+            "border-color": "#7c3aed",
+          },
         },
         {
           selector: "edge",
@@ -179,29 +197,48 @@ export function NodeMap({
     });
 
     cy.on("tap", "node", (evt) => {
-      const id = evt.target.id();
-      onNodeClick(id);
+      setSelectedNodeId(evt.target.id());
     });
-
-    // Footer hover label — full question + category.
+    cy.on("tap", (evt) => {
+      // Background click closes the detail panel.
+      if (evt.target === cy) setSelectedNodeId(null);
+    });
     cy.on("mouseover", "node", (evt) => {
-      const node = graph.nodes.find((n) => n.id === evt.target.id());
-      if (node) setHoveredNode(node);
+      setHoveredNodeId(evt.target.id());
     });
     cy.on("mouseout", "node", () => {
-      setHoveredNode(null);
+      setHoveredNodeId(null);
     });
 
     cyRef.current = cy;
 
-    // Re-fit on container resize (mode toggle, window resize). cytoscape doesn't
-    // auto-detect parent size changes; ResizeObserver triggers a layout rerun.
+    // ResizeObserver — 컨테이너의 첫 nonzero 크기 도달 시 layout을 재실행해
+    // 큰 캔버스 폭에 맞게 노드를 다시 펼친다. 단순 fit()만 하면 viewport zoom만
+    // 변하고 노드 좌표는 좁은 mount 시점 기준에 갇혀 화면 한쪽에 몰린다.
     let pendingFrame = 0;
-    const ro = new ResizeObserver(() => {
+    let initialLayoutDone = false;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      const h = entries[0]?.contentRect.height ?? 0;
+      if (w < 50 || h < 50) return;
+
       if (pendingFrame) cancelAnimationFrame(pendingFrame);
       pendingFrame = requestAnimationFrame(() => {
         cy.resize();
-        cy.fit(undefined, 30);
+        if (!initialLayoutDone) {
+          cy.layout({
+            name: "cose-bilkent",
+            animate: false,
+            fit: true,
+            randomize: false,
+            idealEdgeLength: 100,
+            nodeRepulsion: 6500,
+            padding: 30,
+          } as cytoscape.LayoutOptions).run();
+          initialLayoutDone = true;
+        } else {
+          cy.fit(undefined, 30);
+        }
       });
     });
     ro.observe(containerRef.current);
@@ -212,7 +249,7 @@ export function NodeMap({
       cy.destroy();
       if (cyRef.current === cy) cyRef.current = null;
     };
-  }, [graph, onNodeClick]);
+  }, [graph]);
 
   if (loading) {
     return (
@@ -243,24 +280,77 @@ export function NodeMap({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-canvas overflow-hidden flex flex-col h-full min-h-0">
+    <div className="relative rounded-xl border border-border bg-canvas overflow-hidden flex flex-col h-full min-h-0 w-full">
       <div ref={containerRef} className="w-full flex-1 min-h-0" />
+
+      {selectedEntry && (
+        <div className="absolute top-3 right-3 max-w-sm w-[min(22rem,calc(100%-1.5rem))] rounded-xl border border-border bg-surface shadow-lg z-10">
+          <div className="flex items-start justify-between gap-2 px-4 pt-3">
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: colorFor(selectedEntry.category) }}
+              />
+              <span className="text-[10px] font-medium text-tertiary">
+                {CATEGORY_LABEL_KO[selectedEntry.category] ?? selectedEntry.category}
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedNodeId(null)}
+              className="p-0.5 text-subtle hover:text-secondary rounded"
+              aria-label="닫기"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div className="px-4 pb-3 pt-1.5">
+            <p className="text-xs text-muted mb-1 leading-relaxed">{selectedEntry.question}</p>
+            <p className="text-sm text-body leading-relaxed whitespace-pre-wrap">
+              {selectedEntry.answer}
+            </p>
+            {selectedEntry.tags && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {selectedEntry.tags
+                  .split(",")
+                  .filter(Boolean)
+                  .map((t) => (
+                    <span
+                      key={t}
+                      className="text-[10px] bg-wash text-tertiary rounded px-1.5 py-0.5"
+                    >
+                      {t.trim()}
+                    </span>
+                  ))}
+              </div>
+            )}
+            {onJumpToEntry && (
+              <button
+                onClick={() => onJumpToEntry(selectedEntry.id)}
+                className="mt-3 text-[11px] text-violet-600 hover:text-violet-700 inline-flex items-center gap-1"
+              >
+                인터뷰에서 이 답변 보기 <ArrowRight size={11} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="shrink-0 px-3 py-2 border-t border-border text-[11px] text-subtle">
-        {hoveredNode ? (
+        {hoveredEntry ? (
           <div className="flex items-center gap-2 min-w-0">
             <span
               className="shrink-0 inline-block w-2 h-2 rounded-full"
-              style={{ backgroundColor: colorFor(hoveredNode.category) }}
+              style={{ backgroundColor: colorFor(hoveredEntry.category) }}
             />
             <span className="text-tertiary shrink-0">
-              {CATEGORY_LABEL_KO[hoveredNode.category] ?? hoveredNode.category}
+              {CATEGORY_LABEL_KO[hoveredEntry.category] ?? hoveredEntry.category}
             </span>
-            <span className="text-body truncate">{hoveredNode.label}</span>
+            <span className="text-body truncate">{hoveredEntry.question}</span>
           </div>
         ) : (
           <div className="flex items-center justify-between">
             <span>노드 {graph.nodes.length} · 엣지 {graph.edges.length}</span>
-            <span>호버 시 전체 질문 · 클릭 시 카드로 이동</span>
+            <span>호버: 전체 질문 · 클릭: 답변 상세</span>
           </div>
         )}
       </div>
