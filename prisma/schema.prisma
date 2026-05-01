@@ -141,6 +141,49 @@ model AgentConversation {
   createdAt DateTime @default(now())
 }
 
+// One Self Map interview session. Mode is decided at start (thread / gap /
+// tension / energy) based on prior session metadata + Self Map state. On
+// explicit end ("오늘은 여기까지" button), the Synthesizer fills
+// threadToResume / tensionCandidates / gapAreas — these become input for the
+// next session's mode selection.
+//
+// JSON columns stored as String (Postgres text); shapes:
+//   modeContext        : { categoryHint?: string, tensionPair?: object }
+//   threadToResume     : [{ summary: string, relatedEntryIds: string[] }]
+//   tensionCandidates  : [{ entryIdA: string, entryIdB: string, description: string }]
+//   gapAreas           : [{ category: string, reason: string }]
+model InterviewSession {
+  id                    String    @id @default(cuid())
+  startedAt             DateTime  @default(now())
+  endedAt               DateTime?
+  mode                  String
+  modeContext           String    @default("{}")
+  threadToResume        String    @default("[]")
+  tensionCandidates     String    @default("[]")
+  gapAreas              String    @default("[]")
+  conversationSessionId String    @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([endedAt])
+}
+
+// Synthesizer output cache. snapshotKey = "{count}-{maxUpdatedAtIso}" — same
+// key means the underlying Self Map hasn't changed and we can reuse the
+// previous synthesis. userEditedStatement persists across re-syntheses.
+model SelfMapSynthesis {
+  id                    String   @id @default(cuid())
+  snapshotKey           String   @unique
+  identityStatement     String
+  userEditedStatement   String?
+  citedEntryIds         String   @default("[]")
+  tensions              String   @default("[]")
+  gaps                  String   @default("[]")
+  dismissedTensionKeys  String   @default("[]")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
 // Closed alpha invite gate. A visitor submits their email on the landing page,
 // Mina reviews in /admin/invites and approves (which mints a 10-char code and
 // emails it). The code lets the holder log in until Mina revokes it; revoked

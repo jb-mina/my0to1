@@ -1,9 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Send, Trash2, Brain, RefreshCw, Pencil, X } from "lucide-react";
+import { Send, Trash2, Brain, RefreshCw, Pencil, X, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  FounderIdentityCard,
+  type Synthesis,
+  type SynthesisState,
+} from "./_components/FounderIdentityCard";
+import { TensionGapSide } from "./_components/TensionGapSide";
 
 type Message = { role: "user" | "assistant"; content: string };
 type SelfMapEntry = {
@@ -12,6 +18,17 @@ type SelfMapEntry = {
   question: string;
   answer: string;
   tags: string;
+};
+
+type Mode = "thread" | "gap" | "tension" | "energy";
+
+type OpeningResponse = {
+  interviewSessionId: string;
+  conversationSessionId: string;
+  mode: Mode;
+  modeContext: { targetCategory?: string };
+  firstMessage: string;
+  modeHintLine?: string;
 };
 
 const CATEGORY_LABELS: Record<string, { label: string; color: "violet" | "green" | "amber" | "blue" | "red" }> = {
@@ -25,25 +42,66 @@ const CATEGORY_LABELS: Record<string, { label: string; color: "violet" | "green"
 
 const CATEGORY_OPTIONS = ["interests", "strengths", "aversions", "flow", "network", "other"];
 
-const SESSION_ID = `self-${Date.now()}`;
-
 export default function SelfMapPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [entries, setEntries] = useState<SelfMapEntry[]>([]);
   const [started, setStarted] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const [interviewSessionId, setInterviewSessionId] = useState<string | null>(null);
+  const [conversationSessionId, setConversationSessionId] = useState<string | null>(null);
+  const [modeHintLine, setModeHintLine] = useState<string | null>(null);
+  const [ending, setEnding] = useState(false);
   const [editingEntry, setEditingEntry] = useState<SelfMapEntry | null>(null);
   const [editForm, setEditForm] = useState({ category: "", question: "", answer: "", tags: "" });
+  const [activeTab, setActiveTab] = useState<"chat" | "map">("chat");
+
+  // "이번 대화에서" 새 항목 도트용 baseline.
+  // 페이지 mount 시 첫 fetchEntries에서 한 번만 set되고 새로고침 시 초기화 → fresh가 빈 셋 (의도).
+  const [baselineIds, setBaselineIds] = useState<Set<string>>(new Set());
+  const [, setBaselineSet] = useState(false);
+
+  // Synthesis state는 page에서 관리 — 두 컴포넌트(Identity / TensionGap)가
+  // 같은 데이터를 공유하므로 fetch를 중복하지 않게.
+  const [synthesisState, setSynthesisState] = useState<SynthesisState>({ status: "loading" });
+  const [refreshingSynthesis, setRefreshingSynthesis] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mapPanelRef = useRef<HTMLDivElement>(null);
 
   const fetchEntries = useCallback(async () => {
     const res = await fetch("/api/self-map");
-    setEntries(await res.json());
+    const list = (await res.json()) as SelfMapEntry[];
+    setEntries(list);
+    setBaselineSet((prev) => {
+      if (prev) return prev;
+      setBaselineIds(new Set(list.map((e) => e.id)));
+      return true;
+    });
   }, []);
 
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
+  const loadSynthesis = useCallback(async () => {
+    try {
+      const res = await fetch("/api/self-map/synthesis");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const json = await res.json();
+      if (!json.ready) {
+        setSynthesisState({ status: "not_ready", entryCount: json.entryCount, threshold: json.threshold });
+      } else {
+        setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+      }
+    } catch (e) {
+      setSynthesisState({ status: "error", message: (e as Error).message });
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchEntries();
+    loadSynthesis();
+  }, [fetchEntries, loadSynthesis]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -66,6 +124,7 @@ export default function SelfMapPage() {
   }
 
   async function sendMessage(content: string) {
+    if (!conversationSessionId) return;
     const newMessages: Message[] = [...messages, { role: "user", content }];
     setMessages(newMessages);
     setInput("");
@@ -74,7 +133,7 @@ export default function SelfMapPage() {
     const res = await fetch("/api/self-insight", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: newMessages, sessionId: SESSION_ID }),
+      body: JSON.stringify({ messages: newMessages, sessionId: conversationSessionId }),
     });
 
     const reader = res.body!.getReader();
@@ -100,17 +159,129 @@ export default function SelfMapPage() {
     fetch("/api/self-insight/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: finalMessages.slice(-6), sessionId: SESSION_ID }),
+      body: JSON.stringify({ messages: finalMessages.slice(-6), sessionId: conversationSessionId }),
     })
-      .then((r) => (r.ok && r.status === 201 ? fetchEntries() : undefined))
+      .then(async (r) => {
+        if (r.ok && r.status === 201) {
+          await fetchEntries();
+          await loadSynthesis();
+        }
+      })
       .catch(() => {});
 
     inputRef.current?.focus();
   }
 
-  async function startSession() {
-    setStarted(true);
-    await sendMessage("안녕하세요! 저는 창업을 준비하고 있어요. 자기 이해부터 시작하고 싶습니다.");
+  async function startSession(force?: { mode?: Mode; category?: string }) {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const res = await fetch("/api/self-insight/opening", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(force ?? {}),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const data = (await res.json()) as OpeningResponse;
+      setInterviewSessionId(data.interviewSessionId);
+      setConversationSessionId(data.conversationSessionId);
+      setModeHintLine(data.modeHintLine ?? null);
+      setMessages([{ role: "assistant", content: data.firstMessage }]);
+      setStarted(true);
+      setActiveTab("chat");
+    } catch (e) {
+      alert(`인터뷰 시작 실패: ${(e as Error).message}`);
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  async function endSession() {
+    if (!interviewSessionId || ending) return;
+    if (!window.confirm("이번 인터뷰를 마칠까요? 다음에 이어가는 모드로 다시 시작돼요.")) return;
+    setEnding(true);
+    try {
+      const res = await fetch(`/api/interview-session/${interviewSessionId}/end`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      await loadSynthesis();
+      setStarted(false);
+      setMessages([]);
+      setInterviewSessionId(null);
+      setConversationSessionId(null);
+      setModeHintLine(null);
+    } catch (e) {
+      alert(`저장 실패: ${(e as Error).message}`);
+    } finally {
+      setEnding(false);
+    }
+  }
+
+  async function refreshSynthesis() {
+    if (refreshingSynthesis) return;
+    setRefreshingSynthesis(true);
+    try {
+      const res = await fetch("/api/self-map/synthesis/refresh", { method: "POST" });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const json = await res.json();
+      if (!json.ready) {
+        setSynthesisState({ status: "not_ready", entryCount: json.entryCount, threshold: json.threshold });
+      } else {
+        setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+      }
+    } catch (e) {
+      setSynthesisState({ status: "error", message: (e as Error).message });
+    } finally {
+      setRefreshingSynthesis(false);
+    }
+  }
+
+  async function patchSynthesisStatement(id: string, value: string | null) {
+    const res = await fetch("/api/self-map/synthesis", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, userEditedStatement: value }),
+    });
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const json = await res.json();
+    setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+  }
+
+  async function dismissTension(key: string) {
+    if (synthesisState.status !== "ready") return;
+    const res = await fetch("/api/self-map/synthesis", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: synthesisState.synthesis.id, dismissTensionKey: key }),
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    setSynthesisState({ status: "ready", synthesis: json.synthesis as Synthesis });
+  }
+
+  function scrollToEntry(entryId: string) {
+    setActiveTab("map");
+    // Wait for DOM to flip the panel into view on mobile.
+    setTimeout(() => {
+      const el = document.querySelector<HTMLElement>(`[data-entry-id="${entryId}"]`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-violet-500");
+      setTimeout(() => el.classList.remove("ring-2", "ring-violet-500"), 1500);
+    }, 50);
+  }
+
+  async function startGapInterview(category: string) {
+    if (started && !window.confirm("현재 인터뷰를 끝내고 새로 시작할까요?")) return;
+    if (started && interviewSessionId) {
+      // End the current one silently — best effort, no metadata regen.
+      await fetch(`/api/interview-session/${interviewSessionId}/end`, { method: "POST" }).catch(() => {});
+      setMessages([]);
+      setInterviewSessionId(null);
+      setConversationSessionId(null);
+    }
+    await startSession({ mode: "gap", category });
   }
 
   async function deleteEntry(id: string) {
@@ -120,14 +291,15 @@ export default function SelfMapPage() {
       body: JSON.stringify({ id }),
     });
     await fetchEntries();
+    await loadSynthesis();
   }
-
-  const [activeTab, setActiveTab] = useState<"chat" | "map">("chat");
 
   const grouped = entries.reduce<Record<string, SelfMapEntry[]>>((acc, e) => {
     (acc[e.category] ??= []).push(e);
     return acc;
   }, {});
+
+  const freshIds = new Set(entries.filter((e) => !baselineIds.has(e.id)).map((e) => e.id));
 
   return (
     <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
@@ -152,7 +324,22 @@ export default function SelfMapPage() {
           <Brain size={18} className="text-violet-600" />
           <h1 className="font-semibold text-foreground">Self Insight Agent</h1>
           <span className="text-xs text-muted ml-1">— 나를 이해하는 인터뷰</span>
+          {started && (
+            <button
+              onClick={endSession}
+              disabled={ending}
+              className="ml-auto text-xs text-muted hover:text-violet-600 disabled:opacity-40 transition-colors"
+            >
+              {ending ? "저장 중…" : "오늘은 여기까지"}
+            </button>
+          )}
         </div>
+
+        {modeHintLine && started && (
+          <div className="px-5 py-2 text-xs text-violet-600 bg-violet-50/60 border-b border-violet-100">
+            {modeHintLine}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 bg-canvas">
           {!started && (
@@ -163,9 +350,11 @@ export default function SelfMapPage() {
                 <p className="text-xs text-muted mt-1">관심사, 강점, 몰입 경험, 혐오, 네트워크를 탐색합니다</p>
               </div>
               <button
-                onClick={startSession}
-                className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-500 transition-colors"
+                onClick={() => startSession()}
+                disabled={opening}
+                className="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50 transition-colors flex items-center gap-2"
               >
+                {opening && <Loader2 size={14} className="animate-spin" />}
                 인터뷰 시작
               </button>
             </div>
@@ -214,52 +403,96 @@ export default function SelfMapPage() {
       </div>
 
       {/* Self Map panel */}
-      <div className={`flex-col overflow-y-auto bg-surface md:w-80 md:shrink-0 ${activeTab === "chat" ? "hidden md:flex" : "flex flex-1"}`}>
+      <div
+        ref={mapPanelRef}
+        className={`flex-col overflow-y-auto bg-surface md:w-96 lg:w-[28rem] xl:w-[32rem] md:shrink-0 ${activeTab === "chat" ? "hidden md:flex" : "flex flex-1"}`}
+      >
         <div className="flex items-center justify-between px-4 py-4 border-b border-border">
           <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
-          <button onClick={fetchEntries} className="text-subtle hover:text-secondary p-1 rounded">
+          <button
+            onClick={async () => {
+              await fetchEntries();
+              await loadSynthesis();
+            }}
+            className="text-subtle hover:text-secondary p-1 rounded"
+          >
             <RefreshCw size={14} />
           </button>
         </div>
+
         <div className="px-4 py-4 space-y-4">
+          <FounderIdentityCard
+            state={synthesisState}
+            entries={entries}
+            refreshing={refreshingSynthesis}
+            onRefresh={refreshSynthesis}
+            onPatchStatement={patchSynthesisStatement}
+            onCiteClick={scrollToEntry}
+          />
+
+          {synthesisState.status === "ready" && (
+            <TensionGapSide
+              synthesis={synthesisState.synthesis}
+              entries={entries}
+              onCiteClick={scrollToEntry}
+              onDismissTension={dismissTension}
+              onStartGapInterview={startGapInterview}
+            />
+          )}
+
           {entries.length === 0 && (
             <p className="text-xs text-subtle text-center py-8">대화하면 여기에 자동으로 정리됩니다</p>
           )}
+
           {Object.entries(grouped).map(([cat, items]) => {
             const meta = CATEGORY_LABELS[cat] ?? CATEGORY_LABELS.other;
             return (
               <div key={cat}>
-                <Badge variant={meta.color} className="mb-2">{meta.label}</Badge>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Badge variant={meta.color}>{meta.label}</Badge>
+                  <span className="text-[10px] text-subtle">{items.length}</span>
+                </div>
                 <div className="space-y-2">
-                  {items.map((e) => (
-                    <Card key={e.id} className="p-3">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-xs text-muted flex-1">{e.question}</p>
-                        <div className="flex gap-0.5 shrink-0">
-                          <button
-                            onClick={() => openEdit(e)}
-                            className="p-1 text-subtle hover:text-violet-600 transition-colors rounded"
-                          >
-                            <Pencil size={12} />
-                          </button>
-                          <button
-                            onClick={() => deleteEntry(e.id)}
-                            className="p-1 text-subtle hover:text-red-500 transition-colors rounded"
-                          >
-                            <Trash2 size={12} />
-                          </button>
+                  {items.map((e) => {
+                    const isFresh = freshIds.has(e.id);
+                    return (
+                      <Card
+                        key={e.id}
+                        data-entry-id={e.id}
+                        className={`p-3 relative transition-shadow ${isFresh ? "ring-1 ring-violet-200" : ""}`}
+                      >
+                        {isFresh && (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-violet-500" />
+                        )}
+                        <div className="flex items-start justify-between gap-2 mb-1">
+                          <p className="text-xs text-muted flex-1">{e.question}</p>
+                          <div className="flex gap-0.5 shrink-0">
+                            <button
+                              onClick={() => openEdit(e)}
+                              className="p-1 text-subtle hover:text-violet-600 transition-colors rounded"
+                            >
+                              <Pencil size={12} />
+                            </button>
+                            <button
+                              onClick={() => deleteEntry(e.id)}
+                              className="p-1 text-subtle hover:text-red-500 transition-colors rounded"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <p className="text-sm text-body">{e.answer}</p>
-                      {e.tags && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {e.tags.split(",").filter(Boolean).map((t) => (
+                        <p className="text-sm text-body">{e.answer}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          {e.tags && e.tags.split(",").filter(Boolean).map((t) => (
                             <span key={t} className="text-xs bg-wash text-tertiary rounded px-1.5 py-0.5">{t.trim()}</span>
                           ))}
+                          {isFresh && (
+                            <span className="text-[10px] text-violet-600 ml-auto">이번 대화</span>
+                          )}
                         </div>
-                      )}
-                    </Card>
-                  ))}
+                      </Card>
+                    );
+                  })}
                 </div>
               </div>
             );
