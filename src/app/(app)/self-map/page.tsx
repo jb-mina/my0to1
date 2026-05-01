@@ -334,7 +334,11 @@ export default function SelfMapPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] md:h-screen overflow-hidden">
-      {/* Top bar — page mode toggle centered (Claude-home pattern) */}
+      {/* Top bar — page mode toggle centered (Claude-home pattern). */}
+      {/* "요약보기" used to live here but pressing it from canvas mode forced */}
+      {/* a tab-flip back to interview to reveal the result, which felt awkward. */}
+      {/* It now lives inside the side panel header so it's only reachable from */}
+      {/* the surface where the synthesis actually renders. */}
       <div className="shrink-0 border-b border-border bg-surface px-4 py-2.5 grid grid-cols-3 items-center gap-3">
         <h1 className="text-sm font-semibold text-foreground flex items-center gap-2 justify-self-start">
           <Brain size={16} className="text-violet-600" />
@@ -360,25 +364,7 @@ export default function SelfMapPage() {
             캔버스
           </button>
         </div>
-        <div className="justify-self-end">
-          <button
-            onClick={refreshSynthesis}
-            disabled={refreshingSynthesis || entries.length < 3}
-            title={
-              entries.length < 3
-                ? "엔트리가 3개 이상일 때 요약을 정리할 수 있어요"
-                : "AI로 정체성·tension·gap을 다시 정리"
-            }
-            className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:bg-violet-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
-          >
-            {refreshingSynthesis ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <Sparkles size={12} />
-            )}
-            요약보기
-          </button>
-        </div>
+        <div />
       </div>
 
       {/* Main row */}
@@ -505,16 +491,35 @@ export default function SelfMapPage() {
         >
           <div className="flex items-center justify-between px-4 py-4 border-b border-border">
             <h2 className="text-sm font-semibold text-foreground">Self Map</h2>
-            <button
-              onClick={async () => {
-                await fetchEntries();
-                await loadSynthesis();
-              }}
-              className="text-subtle hover:text-secondary p-1 rounded"
-              title="새로고침"
-            >
-              <RefreshCw size={14} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshSynthesis}
+                disabled={refreshingSynthesis || entries.length < 3}
+                title={
+                  entries.length < 3
+                    ? "엔트리가 3개 이상일 때 요약을 정리할 수 있어요"
+                    : "AI로 정체성·tension·gap을 다시 정리"
+                }
+                className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-500 disabled:bg-violet-300 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
+              >
+                {refreshingSynthesis ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Sparkles size={12} />
+                )}
+                요약보기
+              </button>
+              <button
+                onClick={async () => {
+                  await fetchEntries();
+                  await loadSynthesis();
+                }}
+                className="text-subtle hover:text-secondary p-1 rounded"
+                title="새로고침"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Mobile-only CTA: prominent interview launcher. Hidden on desktop */}
