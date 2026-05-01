@@ -384,10 +384,13 @@ export default function SelfMapPage() {
       {/* Main row */}
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
         {/* Left main panel: chat in interview mode, node map in canvas mode. */}
-        {/* Canvas mode hides the sidebar entirely so the graph gets the full */}
-        {/* width — node click flips back to interview mode + scrolls to the */}
-        {/* card, so duplicating the sidebar here just shrinks the canvas. */}
-        <div className="flex flex-col flex-1 min-h-0 md:border-r md:border-border">
+        {/* Mobile interview pre-start hides this panel — the side panel takes */}
+        {/* over as the default view and triggers chat via its CTA button. */}
+        <div
+          className={`flex-col flex-1 min-h-0 md:border-r md:border-border ${
+            isInterview && !started ? "hidden md:flex" : "flex"
+          }`}
+        >
           {isInterview && (
             <>
               <div className="flex items-center gap-2 px-5 py-4 border-b border-border bg-surface">
@@ -489,12 +492,15 @@ export default function SelfMapPage() {
           )}
         </div>
 
-        {/* Right side panel — only visible in interview mode on desktop. */}
-        {/* Mobile interview mode keeps chat full-screen; the sidebar in that */}
-        {/* viewport is a follow-up. Canvas mode hides this panel entirely. */}
+        {/* Right side panel — Self Map content. */}
+        {/* Desktop interview: side rail next to chat. */}
+        {/* Mobile interview pre-start: takes the full screen as the default */}
+        {/*   view; chat is launched via the CTA below the header. */}
+        {/* Mobile interview during chat: hidden so chat fills the screen. */}
+        {/* Canvas mode: hidden on every viewport. */}
         <div
-          className={`flex-col overflow-y-auto bg-surface md:w-96 lg:w-[28rem] xl:w-[32rem] md:shrink-0 ${
-            isInterview ? "hidden md:flex" : "hidden"
+          className={`flex-col overflow-y-auto bg-surface flex-1 md:flex-initial md:w-96 lg:w-[28rem] xl:w-[32rem] md:shrink-0 ${
+            isCanvas ? "hidden" : started ? "hidden md:flex" : "flex md:flex"
           }`}
         >
           <div className="flex items-center justify-between px-4 py-4 border-b border-border">
@@ -510,6 +516,21 @@ export default function SelfMapPage() {
               <RefreshCw size={14} />
             </button>
           </div>
+
+          {/* Mobile-only CTA: prominent interview launcher. Hidden on desktop */}
+          {/* (chat panel already shows its own start button) and once started. */}
+          {!started && (
+            <div className="md:hidden px-4 pt-4">
+              <button
+                onClick={() => startSession()}
+                disabled={opening}
+                className="w-full rounded-lg bg-violet-600 px-4 py-3 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {opening ? <Loader2 size={14} className="animate-spin" /> : <MessageSquare size={14} />}
+                인터뷰 시작
+              </button>
+            </div>
+          )}
 
           <div className="px-4 py-4 space-y-4">
             <FounderIdentityCard
