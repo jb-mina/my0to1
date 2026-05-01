@@ -1,6 +1,6 @@
 # Agents Inventory
 
-> 마지막 갱신: 2026-04-30
+> 마지막 갱신: 2026-05-01
 > 기준 커밋: `main` 브랜치 현재 상태
 
 ---
@@ -9,12 +9,12 @@
 
 | 상태 | 에이전트 |
 |------|----------|
-| ✅ 구현됨 | Self Insight, Problem Scout, Fit Judge, Validation Designer, Solution Suggester, Reality Check (3-persona + Moderator) |
+| ✅ 구현됨 | Self Insight, Problem Scout, Fit Judge, Validation Designer, Solution Suggester, Reality Check (3-persona + Moderator), **Self Map Synthesizer** |
 | 📋 기획됨 (미구현) | **OnePager Composer** — 솔루션 1-pager 초안 작성. Phase 1~3에서 구현 예정 |
 | ❌ 미구현 (PRD 언급) | — |
-| ⚠️ PRD 외 추가됨 | Reality Check Moderator (PRD에는 4번째 에이전트로 언급, 별도 API 없이 reality-check route에 통합) |
+| ⚠️ PRD 외 추가됨 | Reality Check Moderator (PRD에는 4번째 에이전트로 언급, 별도 API 없이 reality-check route에 통합), **Self Map Synthesizer** (Self Insight 경계 보존을 위해 합성 책임 분리, 2026-05-01) |
 
-**핵심 구조적 문제**: 모든 에이전트가 `lib/agents/` 없이 `app/api/*/route.ts` 내부에 인라인 구현되어 있음. CLAUDE.md 6조("에이전트 호출은 `lib/agents/<name>/` 안에 `prompt.ts` + `schema.ts` + `run.ts` 3파일 구조")와 불일치.
+**핵심 구조적 문제**: 대부분의 에이전트가 `lib/agents/` 없이 `app/api/*/route.ts` 내부에 인라인 구현되어 있음. CLAUDE.md 6조("에이전트 호출은 `lib/agents/<name>/` 안에 `prompt.ts` + `schema.ts` + `run.ts` 3파일 구조")와 불일치. 신규 에이전트(Validation Designer / Solution Suggester / **Self Map Synthesizer**)는 컨벤션 준수.
 
 ---
 
@@ -22,11 +22,11 @@
 
 | 항목 | 내용 |
 |------|------|
-| **파일** | `src/app/api/self-insight/route.ts` |
+| **파일** | `src/app/api/self-insight/route.ts` (인터뷰 본체) + `src/app/api/self-insight/opening/route.ts` (4모드 분기 첫 발화, 2026-05-01) |
 | **PRD 매핑** | Self Map 레이어 — "Self Insight Agent" |
 | **UI 호출처** | `src/app/(app)/self-map/page.tsx` |
 | **모델** | `claude-sonnet-4-6` |
-| **호출 방식** | `messages.stream()` (스트리밍) |
+| **호출 방식** | `messages.stream()` (인터뷰 본체) / `messages.create()` (opening 라우트, 단발) |
 
 ### 시스템 프롬프트 핵심
 > "한 번에 하나의 질문만 합니다. 절대 여러 질문을 동시에 하지 마세요."
@@ -59,6 +59,19 @@
 ### 문제점
 - 출력 포맷이 `---SAVE---` 마커 기반 자유 텍스트 파싱 → CLAUDE.md "에이전트 응답 문자열 파싱 금지. JSON mode + zod로만" 위반
 - Self Map 전체(최근 20개)를 context에 주입 → CLAUDE.md "필요한 섹션만 선별 주입" 지침과 경계
+- 본체 라우트는 아직 `lib/agents/` 컨벤션으로 이전되지 않음. 신규 opening 라우트는 라우트 인라인 (Self Insight 본체와 함께 후속 PR에서 통합 이전 예정)
+
+### Opening 라우트 (4모드 분기, 2026-05-01)
+
+`POST /api/self-insight/opening` — 사용자 메시지 없이 호출 → 직전 InterviewSession + Self Map 상태로 모드 결정 후 첫 assistant 메시지 1턴 산출.
+
+모드 우선순위:
+1. **thread** — 직전 종료된 InterviewSession에 `threadToResume[]`이 있으면
+2. **gap** — 0~1개 카테고리가 있으면 (network/flow/aversions 우선)
+3. **tension** — 최신 SelfMapSynthesis에 tensions가 있으면
+4. **energy** — fallback (가벼운 안부형)
+
+`forceMode: "gap"` + `forceCategory`로 외부에서 강제 가능 (Tension/Gap 사이드의 "이 영역으로 인터뷰 가기" 클릭 시).
 
 ---
 
@@ -258,7 +271,65 @@
 
 ---
 
-## 6. OnePager Composer Agent (📋 기획됨, 미구현)
+## 6. Self Map Synthesizer Agent (✅ 구현됨, 2026-05-01)
+
+| 항목 | 내용 |
+|------|------|
+| **파일** | `src/lib/agents/self-map-synthesizer/{prompt.ts, schema.ts, run.ts}` (CLAUDE.md §6 컨벤션 준수) |
+| **PRD 매핑** | PRD 외 추가 ⚠️ — Self Insight 경계("질문자, 조언/요약 금지") 보존 위해 합성 책임 분리 |
+| **호출 API** | `GET /api/self-map/synthesis` (Identity Card / Tension/Gap 사이드 데이터), `POST /api/self-map/synthesis/refresh` (강제 재합성), `POST /api/interview-session/[id]/end` (인터뷰 종료 시 메타 산출) |
+| **UI 호출처** | `src/app/(app)/self-map/_components/FounderIdentityCard.tsx`, `TensionGapSide.tsx` |
+| **모델** | `claude-sonnet-4-6` |
+| **호출 방식** | `messages.create()` (단발, JSON mode + zod 검증) |
+
+### 책임 경계
+
+- **하는 것**: SelfMapEntry[] → 1) 한 문단 가설형 identityStatement, 2) 인용 entryIds, 3) tensions[], 4) gaps[]. 종료 호출 시에만 `recentMessages`까지 입력으로 받아 `threadToResume[]`도 산출.
+- **하지 않는 것**:
+  - 사용자에게 질문 (Self Insight 책임)
+  - 솔루션·문제 제안 (Solution Suggester / Problem Scout 책임)
+  - 단정적 자기 정의 ("당신은 X입니다") — 가설형 어미 강제
+  - 추천·평가·다음 액션 제안 (사용자 결정 영역)
+
+### 입력 스키마
+
+```typescript
+{
+  entries: SelfMapEntry[],
+  dismissedTensionKeys?: string[],   // sorted "idA|idB" 키 — LLM에게 제외 hint
+  recentMessages?: { role, content }[],  // 종료 호출에서만 — threadToResume 산출용
+}
+```
+
+100개 이상 entries는 카테고리당 최신 15개씩 + 카테고리 coverage 통계만 (CLAUDE.md §7 "Self Map 전체 주입 금지" 함정).
+
+### 출력 스키마 (zod)
+
+```typescript
+{
+  identityStatement: string,     // 한국어 1~2문장, 20~400자, 가설형 어미
+  citedEntryIds: string[],       // 1~8개, identityStatement 근거
+  tensions: { entryIdA, entryIdB, description }[],  // 최대 3개
+  gaps: { category: CoreCategory, reason }[],       // 최대 3개
+  threadToResume?: { summary, relatedEntryIds }[],  // 종료 호출에서만, 최대 2개
+}
+```
+
+### 캐시 정책
+
+`SelfMapSynthesis` 모델에 `snapshotKey = "${count}-${maxUpdatedAtIso}"` 기준으로 캐시. SelfMapEntry CRUD 시 자동 invalidate. 사용자 편집(`userEditedStatement`)과 dismissed 키는 재합성 시 보존. 강제 재합성은 `/refresh` 엔드포인트만.
+
+### 결정 근거
+
+`docs/decisions.md` 2026-05-01 결정 4건 참조:
+- Self Insight 분리 원칙
+- 4모드부터 시작 (외부 자극 연결은 후순위)
+- 인터뷰 종료는 명시적 사용자 액션
+- 노드맵은 별 PR
+
+---
+
+## 7. OnePager Composer Agent (📋 기획됨, 미구현)
 
 | 항목 | 내용 |
 |------|------|
@@ -326,7 +397,7 @@
 
 ---
 
-## 7. PRD 언급 vs 구현 현황
+## 8. PRD 언급 vs 구현 현황
 
 ### PRD에 있고 구현된 것 ✅
 | PRD 에이전트 | 구현 파일 |
@@ -349,20 +420,21 @@
 | LearningLog → SelfMap/ProblemCard 역류 | CLAUDE.md 진행 중 항목 |
 
 ### 구현됐으나 PRD 외 추가 ⚠️
-없음. 단, 아래는 PRD 범위와 경계가 불명확한 항목:
-- `api/problems/seed` — 하드코딩 시드 (임시 구현, 운영 코드로 남아있음)
+- **Self Map Synthesizer** (2026-05-01) — Self Insight 경계 보존(질문자, 조언/요약 금지)을 위해 합성·해석 책임을 분리. PRD에는 명시 없음. Validation Designer / Solution Suggester 분리 패턴 그대로.
+- `api/problems/seed` — 하드코딩 시드 (임시 구현, 운영 코드로 남아있음). PRD 범위와 경계 불명확.
 
 ---
 
-## 8. CLAUDE.md 준수 현황
+## 9. CLAUDE.md 준수 현황
 
 | 원칙 | 현황 |
 |------|------|
-| `lib/agents/<name>/prompt.ts + schema.ts + run.ts` 3파일 구조 | ❌ 미준수 — 모두 route.ts 인라인 |
-| 에이전트 응답: JSON mode + Zod 스키마 검증 | ❌ 미준수 — 정규식 파싱 사용 |
+| `lib/agents/<name>/prompt.ts + schema.ts + run.ts` 3파일 구조 | ⚠️ 부분 — Validation Designer / Solution Suggester / **Self Map Synthesizer** 준수. 나머지(Self Insight·Problem Scout·Fit Judge·Reality Check)는 route.ts 인라인 |
+| 에이전트 응답: JSON mode + Zod 스키마 검증 | ⚠️ 부분 — 신규 에이전트 3건 준수, 인라인 라우트는 정규식 파싱 |
 | 시드 데이터: `seeds/problem-cards.json`으로만 | ❌ 미준수 — route.ts 하드코딩 |
 | LearningLog → 엔티티 역류 트랜잭션 | ❌ 미구현 |
-| Fit Judge: Self Map 인용 형태 근거 표시 | ⚠️ 부분 — reason 필드 있으나 인용 아님 |
+| Fit Judge: Self Map 인용 형태 근거 표시 | ⚠️ 부분 — reason 필드 있으나 인용 아님. 신규 Synthesizer는 `citedEntryIds`로 인용 패턴 도입 (Identity Card에서 사용) |
+| 에이전트 책임 단일성 (CLAUDE.md §7) | ✅ Self Insight 경계 침범 방지 위해 합성 책임을 Self Map Synthesizer로 분리 (2026-05-01) |
 | 한 번에 하나의 질문 (Self Insight) | ✅ 프롬프트에 명시 |
 | 병렬 호출 (Reality Check) | ✅ Promise.all |
 | 아이디어 생성 금지 | ⚠️ Validation Designer의 `ideaDraft` 필드가 경계 |

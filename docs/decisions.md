@@ -197,3 +197,35 @@
 **버리는 것**: enum 외 도메인의 출력 카테고리(빈 문자열로 들어옴). 추후 enum 확장 시 정리 스크립트만 한 번 더 돌려 정합 유지.
 
 ---
+
+## Self Map 합성 책임은 별도 Synthesizer 에이전트로 분리
+**날짜**: 2026-05-01
+**결정**: Founder Identity / Tension / Gap 합성을 `src/lib/agents/self-map-synthesizer/`에 신규 에이전트로 둠. Self Insight는 질문자 역할만 유지, 합성·해석에 절대 관여하지 않음.
+**이유**: `CLAUDE.md §3` "Self Insight Agent — 질문자. 조언·해석·요약·공감 코멘트 금지"와 §7 "에이전트가 약하게 작동한다면 책임 분리부터 의심한다"의 정신. Validation Designer / Solution Suggester를 분리한 패턴 그대로. 한 에이전트에 두 책임을 주면 인터뷰가 약해지거나 합성이 약해지는 함정 — Solution Suggester 분리 때 이미 확인됨.
+**버리는 것**: 한 에이전트로 끝내는 단순성과 토큰 1콜 절감. 대신 합성은 캐시(snapshotKey 기준)로 단발 호출 빈도를 낮춤.
+
+---
+
+## Self Map UX 개편 시퀀스 — 4모드부터, 외부 자극 연결은 후순위
+**날짜**: 2026-05-01
+**결정**: phase 1은 Synthesizer + 4모드(thread/gap/tension/energy) opening + 끝내기 버튼 + Layer 1(Founder Identity Card) + Layer 3(Tension/Gap 사이드)까지. 외부 자극 연결(5번째 모드 — Problem Universe 활동 연결)·노드맵·시간성 시각화·LearningLog 역류는 별 PR.
+**이유**: 외부 자극 연결은 `ProblemCardActivity` 신규 모델이 필요 — Self Map만의 변경이 아니라 Problem Universe와의 결합. PR 단위를 좁혀 리뷰·롤백 안전성과 사용자가 받는 첫 가치(정체성 카드)의 응집감 둘 다 살리는 게 목적. 노드맵은 그래프 라이브러리·태그 N:M 정규화·사용자 편집 UI까지 결정 폭이 커서 Identity/Tension/Gap이 안정된 후 별 PR.
+**버리는 것**: 한 번에 비전 전체를 구현하는 응집감. 노드맵을 phase 1에 못 넣는 손실은 "Layer 1+3만으로도 가치 80% 회수" 가정에 베팅.
+
+---
+
+## 인터뷰 종료는 명시적 사용자 액션 ("오늘은 여기까지" 버튼)
+**날짜**: 2026-05-01
+**결정**: 자동 종료(타이머·메시지 수 임계) 대신 명시적 버튼. 페이지 이탈 시 `InterviewSession.endedAt`은 null로 남고, opening 라우트는 `endedAt is not null`인 세션만 thread 모드 후보로 본다.
+**이유**: 자동 종료는 "끝났다"는 사용자 의사를 추정해야 하는데 추정 실패 시 다음 세션의 thread 후보가 false positive로 들어가 인터뷰 품질 저하. 명시 버튼은 "이건 정리해도 돼"라는 사용자 결단을 캡처. 미종료 세션의 메시지(`AgentConversation`)는 그대로 살아있어 데이터 손실 없음 — 단지 thread 메타가 비는 것뿐.
+**버리는 것**: 사용자가 매번 버튼을 눌러야 하는 마찰. 미종료 세션의 thread 후보 누락. 후속에서 24h cron으로 자동 endedAt set 옵션 검토.
+
+---
+
+## Self Map 노드맵(Layer 2)은 별 PR
+**날짜**: 2026-05-01
+**결정**: 카드 리스트 → 정체성 캔버스 전환에서 Layer 2(태그 기반 노드맵 시각화)는 phase 1에 포함하지 않음. Layer 1(Founder Identity Card) + Layer 3(Tension/Gap 사이드)만.
+**이유**: 노드맵은 (1) 태그 N:M 정규화 + Tag 엔티티 신설, (2) Synthesizer 태그 추출 후처리 강화, (3) 그래프 라이브러리 도입과 노드 placement·인터랙션 결정, (4) 사용자 편집 UI까지 한 PR이 결정해야 할 폭이 큼. Identity Card / Tension / Gap은 데이터·UI 모두 기존 컴포넌트 패턴 안에서 완결. 데이터(citedEntryIds·tensions)가 안정된 후 시각화 위에 얹는 게 안전.
+**버리는 것**: "정체성 캔버스" 비유가 한 PR에 안 닫힘. UI 카피를 phase 1에서 신중히 — "Identity 카드 / 긴장과 갭"으로만 표현하고 "캔버스" 단어는 노드맵 도입 시 노출.
+
+---
