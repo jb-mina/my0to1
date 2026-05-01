@@ -55,10 +55,11 @@ function colorFor(category: string): string {
   return CATEGORY_COLOR[category] ?? CATEGORY_COLOR.other;
 }
 
-function shortLabel(question: string): string {
+function shortLabel(question: string, isMobile: boolean): string {
   // 노드 옆 라벨 — 호버 popover에 전체 카드가 뜨므로 여기는 식별용 단서만.
   const trimmed = question.trim();
-  return trimmed.length > 10 ? `${trimmed.slice(0, 10)}…` : trimmed;
+  const cap = isMobile ? 8 : 10;
+  return trimmed.length > cap ? `${trimmed.slice(0, cap)}…` : trimmed;
 }
 
 const CATEGORY_ORDER = ["interests", "strengths", "aversions", "flow", "network", "other"] as const;
@@ -87,6 +88,20 @@ export function NodeMap({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [containerWidth, setContainerWidth] = useState<number>(0);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  // Tailwind md breakpoint = 768px. Drives node/font sizing + cose-bilkent
+  // spacing so the graph stays readable in a phone viewport. Cytoscape is
+  // re-mounted via deps when this flips so the new stylesheet applies.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 767px)");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const hoveredEntry = hoveredNodeId ? entries.find((e) => e.id === hoveredNodeId) : null;
   const selectedEntry = selectedNodeId ? entries.find((e) => e.id === selectedNodeId) : null;
@@ -160,7 +175,7 @@ export function NodeMap({
       ...graph.nodes.map((n) => ({
         data: {
           id: n.id,
-          label: shortLabel(n.label),
+          label: shortLabel(n.label, isMobile),
           fullLabel: n.label,
           category: n.category,
           tags: n.tags.join(", "),
@@ -192,14 +207,14 @@ export function NodeMap({
             "background-color": (ele: cytoscape.NodeSingular) => colorFor(ele.data("category")),
             label: "data(label)",
             color: "#1f2937",
-            "font-size": "12px",
+            "font-size": isMobile ? "14px" : "12px",
             "font-weight": 500,
             "text-valign": "bottom",
-            "text-margin-y": 8,
+            "text-margin-y": isMobile ? 10 : 8,
             "text-wrap": "wrap",
-            "text-max-width": "100px",
-            width: 28,
-            height: 28,
+            "text-max-width": isMobile ? "120px" : "100px",
+            width: isMobile ? 36 : 28,
+            height: isMobile ? 36 : 28,
             "border-width": 2,
             "border-color": "#ffffff",
           },
@@ -254,12 +269,12 @@ export function NodeMap({
       layout: {
         name: "cose-bilkent",
         animate: false,
-        nodeRepulsion: 6500,
-        idealEdgeLength: 100,
+        nodeRepulsion: isMobile ? 9000 : 6500,
+        idealEdgeLength: isMobile ? 130 : 100,
         edgeElasticity: 0.45,
         randomize: true,
         fit: true,
-        padding: 30,
+        padding: isMobile ? 20 : 30,
       } as cytoscape.LayoutOptions,
       wheelSensitivity: 0.2,
       minZoom: 0.3,
@@ -305,13 +320,13 @@ export function NodeMap({
             animate: false,
             fit: true,
             randomize: false,
-            idealEdgeLength: 100,
-            nodeRepulsion: 6500,
-            padding: 30,
+            idealEdgeLength: isMobile ? 130 : 100,
+            nodeRepulsion: isMobile ? 9000 : 6500,
+            padding: isMobile ? 20 : 30,
           } as cytoscape.LayoutOptions).run();
           initialLayoutDone = true;
         } else {
-          cy.fit(undefined, 30);
+          cy.fit(undefined, isMobile ? 20 : 30);
         }
       });
     });
@@ -323,7 +338,7 @@ export function NodeMap({
       cy.destroy();
       if (cyRef.current === cy) cyRef.current = null;
     };
-  }, [graph, clusterMeanings]);
+  }, [graph, clusterMeanings, isMobile]);
 
   if (loading) {
     return (
@@ -356,7 +371,7 @@ export function NodeMap({
   // Hover popover position — flip horizontally if the node sits in the right
   // half so the card stays inside the canvas. Pointer-events disabled so the
   // mouse never lands on the popover itself (avoids hover thrashing).
-  const popoverWidth = 288;
+  const popoverWidth = isMobile ? 240 : 288;
   const popoverPos = hoverPos && containerWidth > 0
     ? hoverPos.x + popoverWidth + 24 > containerWidth
       ? { right: containerWidth - hoverPos.x + 14, top: Math.max(8, hoverPos.y - 30) }
@@ -368,9 +383,9 @@ export function NodeMap({
     <div className="relative rounded-xl border border-border bg-canvas overflow-hidden flex flex-col h-full min-h-0 w-full">
       <div ref={containerRef} className="w-full flex-1 min-h-0" />
 
-      {/* Top-left legend — category color key. Backdrop blur so it stays */}
-      {/* legible over nodes that drift behind it. */}
-      <div className="absolute top-3 left-3 rounded-lg border border-border bg-surface/95 backdrop-blur-sm shadow-sm px-2.5 py-2 z-10">
+      {/* Top-left legend — category color key. Hidden on mobile (eats too */}
+      {/* much of the small viewport for a key the colored dots already imply). */}
+      <div className="hidden md:block absolute top-3 left-3 rounded-lg border border-border bg-surface/95 backdrop-blur-sm shadow-sm px-2.5 py-2 z-10">
         <div className="text-[9px] text-subtle mb-1.5 font-medium tracking-wide uppercase">
           카테고리
         </div>
@@ -482,7 +497,9 @@ export function NodeMap({
           노드 {graph.nodes.length} · 엣지 {graph.edges.length}
         </span>
         <span className="truncate text-right">
-          가까울수록 공유 태그 ↑ · 호버: 미리보기 · 클릭: 상세
+          {isMobile
+            ? "가까울수록 공유 태그 ↑ · 탭: 상세"
+            : "가까울수록 공유 태그 ↑ · 호버: 미리보기 · 클릭: 상세"}
         </span>
       </div>
     </div>
