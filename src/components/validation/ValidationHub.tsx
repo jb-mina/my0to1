@@ -230,28 +230,32 @@ function SolutionTab({
       )}
 
       {activeSolutions.length > 0 && (
-        <div className="space-y-5">
-          <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
-            활성 솔루션 {activeSolutions.length}개
-          </p>
-          {activeSolutions.map((s) => (
-            <SolutionValidationBlock
-              key={s.id}
-              solution={toBlockData(s)}
-              problemConfirmed={problemFullyConfirmed}
-              defaultExpanded
-              onChanged={onChanged}
-            />
-          ))}
-        </div>
+        <section className="space-y-4">
+          <header className="flex items-baseline gap-2">
+            <h3 className="text-sm font-semibold text-foreground">활성 솔루션</h3>
+            <span className="text-xs text-tertiary">· {activeSolutions.length}개</span>
+          </header>
+          <div className="space-y-4">
+            {activeSolutions.map((s) => (
+              <SolutionValidationBlock
+                key={s.id}
+                solution={toBlockData(s)}
+                problemConfirmed={problemFullyConfirmed}
+                defaultExpanded
+                onChanged={onChanged}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {inactiveSolutions.length > 0 && (
-        <div className="space-y-5 pt-2">
-          <p className="text-xs font-medium text-tertiary uppercase tracking-wide">
-            보류·완료·깨진 솔루션 {inactiveSolutions.length}개
-          </p>
-          <div className="space-y-5 opacity-90">
+        <section className="space-y-4 pt-6 border-t border-border">
+          <header className="flex items-baseline gap-2">
+            <h3 className="text-sm font-semibold text-tertiary">보류·완료·깨진 솔루션</h3>
+            <span className="text-xs text-tertiary">· {inactiveSolutions.length}개</span>
+          </header>
+          <div className="rounded-2xl bg-wash p-3 md:p-4 space-y-3">
             {inactiveSolutions.map((s) => (
               <SolutionValidationBlock
                 key={s.id}
@@ -262,7 +266,7 @@ function SolutionTab({
               />
             ))}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

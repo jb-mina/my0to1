@@ -150,12 +150,21 @@ export function SolutionValidationBlock({
         ? { label: "활성화", target: "active", title: "이 솔루션을 다시 활성화" }
         : { label: "활성화로 원복", target: "active", title: "상태를 활성으로 되돌립니다 (자식 가설 상태 유지)" };
 
+  // Card styling shifts with status so cards visually separate against
+  // the section background. Active = violet accent on white surface
+  // (the user's current focus). Inactive = neutral border + slightly
+  // muted surface so they recede in the inactive section's wash backdrop.
+  const cardClass =
+    status === "active"
+      ? "rounded-2xl border border-violet-300 bg-surface shadow-sm overflow-hidden"
+      : "rounded-2xl border border-border bg-surface/80 overflow-hidden";
+
   return (
-    <div className="rounded-2xl border border-violet-200 bg-violet-50/30 overflow-hidden">
+    <div className={cardClass}>
       {/* Header — uses a hidden full-width toggle button as the click
           target so nested interactive controls (action button) remain
           legal HTML. The toggle is layered under the visual content. */}
-      <div className="relative p-4 md:p-5 hover:bg-violet-100/30 transition-colors">
+      <div className="relative p-4 md:p-5 hover:bg-wash transition-colors">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
@@ -216,7 +225,7 @@ export function SolutionValidationBlock({
         <>
       {/* 4-tab segmented control. Tab dot = tool status. grid-cols-4 keeps
           equal width on every viewport (375px+) without overflow risk. */}
-      <div className="border-t border-violet-200/70 bg-violet-50/40">
+      <div className="border-t border-border bg-wash/60">
         <div
           role="tablist"
           aria-label="솔루션 도구"
