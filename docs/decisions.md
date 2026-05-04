@@ -5,6 +5,14 @@
 
 ---
 
+## Self Map Synthesizer max_tokens 8192 + 모든 fallback 파싱에 try/catch 의무화
+**날짜**: 2026-05-04
+**결정**: 합성기 응답이 4096에서도 잘려 production 500 발생. 8192로 상향 + `stop_reason === "max_tokens"` 가드 + regex fallback `JSON.parse(jsonMatch[0])`도 try/catch로 감싸 raw SyntaxError가 새지 않게.
+**이유**: `entryTagsByEntryId`는 모든 entry 1건당 한국어 태그 배열을 출력해 entries가 많아질수록 출력 크기가 entry 수에 비례. Method Coach 4096 결정(2026-05-04)이 "한국어 풍부 출력은 4096 권장"이었지만 합성기는 entry 수까지 곱해져 더 커짐 — 8192가 30+ entries 기준 안전선.
+**신규 규칙**: regex fallback 안의 `JSON.parse`는 항상 try/catch로 감싼다. 안 그러면 truncation을 명시적 에러로 surface하지 못함.
+
+---
+
 ## 신규 에이전트 default max_tokens 4096 + stop_reason 가드
 **날짜**: 2026-05-04
 **결정**: Method Coach가 production에서 "no JSON found" 500을 던졌고, 원인은 한국어 풍부 출력이 2048 토큰을 넘어 응답이 truncate된 것. 4096으로 상향 + `response.stop_reason === "max_tokens"` 가드 추가.
