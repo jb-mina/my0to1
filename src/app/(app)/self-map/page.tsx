@@ -52,6 +52,11 @@ export default function SelfMapPage() {
   const [started, setStarted] = useState(false);
   const [opening, setOpening] = useState(false);
   const [interviewSessionId, setInterviewSessionId] = useState<string | null>(null);
+  // Client-only deep-dive topic hint passed to the Self Insight agent each
+  // turn. Resets when a new session starts so it stays session-scoped.
+  const [deepDiveTopic, setDeepDiveTopic] = useState("");
+  const [editingTopic, setEditingTopic] = useState(false);
+  const [topicDraft, setTopicDraft] = useState("");
   const [conversationSessionId, setConversationSessionId] = useState<string | null>(null);
   const [modeHintLine, setModeHintLine] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
@@ -149,7 +154,11 @@ export default function SelfMapPage() {
     const res = await fetch("/api/self-insight", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: newMessages, sessionId: conversationSessionId }),
+      body: JSON.stringify({
+        messages: newMessages,
+        sessionId: conversationSessionId,
+        deepDiveTopic: deepDiveTopic.trim() || undefined,
+      }),
     });
 
     const reader = res.body!.getReader();
@@ -205,6 +214,11 @@ export default function SelfMapPage() {
       setMessages([{ role: "assistant", content: data.firstMessage }]);
       setStarted(true);
       setPageMode("interview");
+      // Topic hint is session-scoped — clear when a new session starts
+      // so a previous deep-dive doesn't leak into the next one.
+      setDeepDiveTopic("");
+      setEditingTopic(false);
+      setTopicDraft("");
     } catch (e) {
       alert(`인터뷰 시작 실패: ${(e as Error).message}`);
     } finally {
@@ -436,7 +450,77 @@ export default function SelfMapPage() {
               </div>
 
               {started && (
-                <div className="px-4 py-3 border-t border-border bg-surface">
+                <div className="px-4 py-3 border-t border-border bg-surface space-y-2">
+                  {/* Deep-dive topic hint — session-scoped client state */}
+                  {editingTopic ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setDeepDiveTopic(topicDraft.trim());
+                        setEditingTopic(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Sparkles size={12} className="text-violet-500 shrink-0" />
+                      <input
+                        autoFocus
+                        value={topicDraft}
+                        onChange={(e) => setTopicDraft(e.target.value)}
+                        placeholder="더 파고들고 싶은 주제 (예: 최근 몰입했던 사이드 프로젝트)"
+                        className="flex-1 rounded-md border border-violet-200 bg-canvas px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-violet-500"
+                      />
+                      <button
+                        type="submit"
+                        className="text-xs rounded-md bg-violet-600 text-white px-2.5 py-1 hover:bg-violet-500"
+                      >
+                        적용
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingTopic(false);
+                          setTopicDraft(deepDiveTopic);
+                        }}
+                        className="text-xs text-tertiary hover:text-secondary px-1"
+                      >
+                        취소
+                      </button>
+                    </form>
+                  ) : deepDiveTopic ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-violet-300 bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
+                        <Sparkles size={10} />
+                        깊이 파고들기: <span className="font-medium">{deepDiveTopic}</span>
+                        <button
+                          onClick={() => setDeepDiveTopic("")}
+                          className="text-violet-500 hover:text-violet-700"
+                          aria-label="주제 초기화"
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                      <button
+                        onClick={() => {
+                          setTopicDraft(deepDiveTopic);
+                          setEditingTopic(true);
+                        }}
+                        className="text-xs text-tertiary hover:text-secondary inline-flex items-center gap-1"
+                      >
+                        <Pencil size={10} /> 변경
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setTopicDraft("");
+                        setEditingTopic(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-tertiary hover:text-violet-600"
+                    >
+                      <Sparkles size={12} /> + 이 주제로 더 파고들기
+                    </button>
+                  )}
+
                   <form
                     onSubmit={(e) => { e.preventDefault(); if (input.trim() && !streaming) sendMessage(input); }}
                     className="flex gap-2"
